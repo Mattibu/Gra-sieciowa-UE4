@@ -1,3 +1,4 @@
+#include "ServerLog.h"
 
 int main()
 {

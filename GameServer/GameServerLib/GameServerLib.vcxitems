@@ -13,4 +13,29 @@
   <ItemGroup>
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)BufferPool.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)ServerLog.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)TCPClient.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)TCPServer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)TCPSocket.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)Thread.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WinsockUtil.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WinTCPClient.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WinTCPServer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WinThread.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)Buffer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)BufferPool.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)ServerLog.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)TCPClient.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)TCPServer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)TCPSocket.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Thread.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)WinsockUtil.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)WinTCPClient.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)WinTCPServer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)WinThread.h" />
+  </ItemGroup>
 </Project>

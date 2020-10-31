@@ -1,8 +1,4 @@
-//
-// pch.h
-// Header for standard system include files.
-//
-
 #pragma once
 
+#include "ServerLog.h"
 #include "gtest/gtest.h"
