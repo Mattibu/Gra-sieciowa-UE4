@@ -6,6 +6,9 @@
 
 namespace spacemma
 {
+    /**
+     * A template class representing a data buffer.
+     */
     template <typename T>
     class Buffer final
     {
@@ -16,14 +19,41 @@ namespace spacemma
         Buffer(Buffer&&) = delete;
         Buffer& operator=(Buffer&) = delete;
         Buffer& operator=(Buffer&&) = delete;
+        /**
+         * Returns the raw pointer to the data.
+         */
         T* getPointer() const;
+        /**
+         * Returns the total size of the underlying buffer.
+         */
         size_t getTotalSize() const;
+        /**
+         * Returns the total byte size of the underlying buffer.
+         */
         size_t getTotalByteSize() const;
+        /**
+         * Returns the size of the data that is currently used.
+         */
         size_t getUsedSize() const;
+        /**
+         * Returns the byte size of the data that is currently used.
+         */
         size_t getUsedByteSize() const;
+        /**
+         * Sets the buffer's used size. The provided size cannot be greater than the total size of this buffer.
+         */
         void setUsedSize(size_t usedSize);
+        /**
+         * Sets the buffer's used byte size. The provided size cannot be greater than the total byte size of this buffer.
+         */
         void setUsedByteSize(size_t usedByteSize);
+        /**
+         * Returns a span representation of this buffer.
+         */
         gsl::span<T> getSpan() const;
+        /**
+         * Returns a span representation of this buffer casted to type provided by a template argument.
+         */
         template <typename U>
         gsl::span<U> getSpan() const;
     private:
