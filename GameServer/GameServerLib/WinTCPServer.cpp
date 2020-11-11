@@ -160,7 +160,7 @@ bool spacemma::WinTCPServer::isConnected()
     return clientSocket != INVALID_SOCKET;
 }
 
-bool spacemma::WinTCPServer::shutdownServer()
+bool spacemma::WinTCPServer::shutdownServer() const
 {
     if (serverSocket != INVALID_SOCKET)
     {
@@ -173,7 +173,7 @@ bool spacemma::WinTCPServer::shutdownServer()
     return true;
 }
 
-bool spacemma::WinTCPServer::shutdownClient()
+bool spacemma::WinTCPServer::shutdownClient() const
 {
     if (clientSocket != INVALID_SOCKET)
     {

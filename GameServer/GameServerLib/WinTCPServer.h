@@ -23,8 +23,8 @@ namespace spacemma
         bool close() override;
         bool isConnected() override;
     private:
-        bool shutdownServer();
-        bool shutdownClient();
+        bool shutdownServer() const;
+        bool shutdownClient() const;
         bool closeServer();
         bool closeClient();
         SOCKET serverSocket{INVALID_SOCKET}, clientSocket{INVALID_SOCKET};

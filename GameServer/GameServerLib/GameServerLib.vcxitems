@@ -22,6 +22,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)Thread.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WinsockUtil.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WinTCPClient.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WinTCPMultiClientServer.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WinTCPServer.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WinThread.cpp" />
   </ItemGroup>
@@ -35,6 +36,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Thread.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)WinsockUtil.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)WinTCPClient.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)WinTCPMultiClientServer.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)WinTCPServer.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)WinThread.h" />
   </ItemGroup>
