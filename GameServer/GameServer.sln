@@ -1,0 +1,44 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30611.23
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameServerLib", "GameServerLib\GameServerLib.vcxitems", "{924FD77A-58D6-4131-B57E-1A130D286D6A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameServerTest", "GameServerTest\GameServerTest.vcxproj", "{3178794E-C1DA-473C-8740-C9015F323A4C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameServerExec", "GameServerExec\GameServerExec.vcxproj", "{7F1FAD69-70B2-4196-A121-FC4C13053357}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		GameServerLib\GameServerLib.vcxitems*{3178794e-c1da-473c-8740-c9015f323a4c}*SharedItemsImports = 4
+		GameServerLib\GameServerLib.vcxitems*{7f1fad69-70b2-4196-a121-fc4c13053357}*SharedItemsImports = 4
+		GameServerLib\GameServerLib.vcxitems*{924fd77a-58d6-4131-b57e-1a130d286d6a}*SharedItemsImports = 9
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Debug|x64.ActiveCfg = Debug|x64
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Debug|x64.Build.0 = Debug|x64
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Release|Any CPU.ActiveCfg = Release|x64
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Release|x64.ActiveCfg = Release|x64
+		{3178794E-C1DA-473C-8740-C9015F323A4C}.Release|x64.Build.0 = Release|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Debug|x64.ActiveCfg = Debug|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Debug|x64.Build.0 = Debug|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Release|Any CPU.ActiveCfg = Release|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Release|x64.ActiveCfg = Release|x64
+		{7F1FAD69-70B2-4196-A121-FC4C13053357}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {28B9DBB5-0931-4ED7-B8B8-32F9FB8EA064}
+	EndGlobalSection
+EndGlobal
