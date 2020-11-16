@@ -34,7 +34,7 @@ bool spacemma::WinTCPServer::bindAndListen(gsl::cstring_span ipAddress, unsigned
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    address = {AF_INET, port, 0, {0}};
+    address = {AF_INET, htons(port), 0, {0}};
     if (int ret = InetPtonA(address.sin_family, ipAddress.cbegin(), &address.sin_addr); ret != 1)
     {
         if (ret == 0)

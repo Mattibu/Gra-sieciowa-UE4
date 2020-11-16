@@ -30,7 +30,7 @@
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BochanThreadTest.cpp" />
+    <ClCompile Include="ThreadTest.cpp" />
     <ClCompile Include="BufferPoolTest.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

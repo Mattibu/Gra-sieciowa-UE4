@@ -43,7 +43,7 @@ bool spacemma::WinTCPMultiClientServer::bindAndListen(gsl::cstring_span ipAddres
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    address = { AF_INET, port, 0, {0} };
+    address = { AF_INET, htons(port), 0, {0} };
     if (int ret = InetPtonA(address.sin_family, ipAddress.cbegin(), &address.sin_addr); ret != 1)
     {
         if (ret == 0)
@@ -66,7 +66,7 @@ bool spacemma::WinTCPMultiClientServer::bindAndListen(gsl::cstring_span ipAddres
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    if (listen(serverSocket, 1) == SOCKET_ERROR)
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
     {
         SERVER_ERROR("Failed to start listening ({})!", WSAGetLastError());
         shutdownServer();
