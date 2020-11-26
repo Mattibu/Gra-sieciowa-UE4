@@ -2,6 +2,7 @@
 
 
 #include "DebugLogger.h"
+#include "Engine.h"
 
 DebugLogger::DebugLogger()
 {

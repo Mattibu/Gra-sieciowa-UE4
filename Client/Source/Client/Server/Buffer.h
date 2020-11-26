@@ -103,10 +103,10 @@ namespace spacemma
     }
 
     template <typename T>
-    void Buffer<T>::setUsedSize(size_t usedSize)
+    void Buffer<T>::setUsedSize(size_t _usedSize)
     {
-        assert(usedSize >= 0ULL && usedSize <= size);
-        this->usedSize = usedSize;
+        assert(_usedSize >= 0ULL && _usedSize <= size);
+        this->usedSize = _usedSize;
     }
 
     template <typename T>

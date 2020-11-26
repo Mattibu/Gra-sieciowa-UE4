@@ -17,7 +17,7 @@ spacemma::WinThread::~WinThread()
     }
 }
 
-bool spacemma::WinThread::run(ThreadFunc func, void* ptr)
+bool spacemma::WinThread::run(ThreadFunc func, void* _ptr)
 {
     std::lock_guard lock(mutex);
     if (running)
@@ -28,7 +28,7 @@ bool spacemma::WinThread::run(ThreadFunc func, void* ptr)
     running = true;
     interrupted = false;
     this->threadFunc = func;
-    this->ptr = ptr;
+    this->ptr = _ptr;
     if (threadHandle)
     {
         closeThreadHandle();
