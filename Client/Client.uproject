@@ -2,5 +2,25 @@
 	"FileVersion": 3,
 	"EngineAssociation": "4.25",
 	"Category": "",
-	"Description": ""
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "Client",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "spdlog",
+			"Enabled": false
+		},
+		{
+			"Name": "ThirdPartyLibs",
+			"Enabled": false
+		}
+	]
 }
