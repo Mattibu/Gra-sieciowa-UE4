@@ -30,6 +30,7 @@ namespace spacemma
         bool acceptClient() override;
         unsigned char getClientCount() const;
         std::vector<unsigned short> getClientPorts() const;
+        bool isClientAlive(unsigned short clientPort) const;
         bool send(gsl::not_null<ByteBuffer*> buff) override;
         bool send(gsl::not_null<ByteBuffer*> buff, unsigned short clientPort);
         ByteBuffer* receive() override;
@@ -37,11 +38,11 @@ namespace spacemma
         bool shutdown() override;
         bool close() override;
         bool isConnected() override;
+        bool shutdownClient(unsigned short port) const;
+        bool closeClient(unsigned short port) const;
     private:
         bool shutdownServer() const;
-        bool shutdownClient(unsigned short port) const;
         bool closeServer();
-        bool closeClient(unsigned short port) const;
         inline ClientData* getClientData(unsigned short port) const;
         SOCKET serverSocket{ INVALID_SOCKET };
         sockaddr_in address{};

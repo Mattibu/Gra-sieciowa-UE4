@@ -155,6 +155,11 @@ std::vector<unsigned short> spacemma::WinTCPMultiClientServer::getClientPorts() 
     return result;
 }
 
+bool spacemma::WinTCPMultiClientServer::isClientAlive(unsigned short clientPort) const
+{
+    return getClientData(clientPort) != nullptr;
+}
+
 bool spacemma::WinTCPMultiClientServer::send(gsl::not_null<ByteBuffer*> buff)
 {
     bool sent = false;
