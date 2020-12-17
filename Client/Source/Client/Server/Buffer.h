@@ -118,6 +118,12 @@ namespace spacemma
     }
 
     template <typename T>
+    gsl::span<T> Buffer<T>::getSpan() const
+    {
+        return gsl::make_span<T>(data, usedSize * sizeof(T));
+    }
+
+    template <typename T>
     template <typename U>
     gsl::span<U> Buffer<T>::getSpan() const
     {

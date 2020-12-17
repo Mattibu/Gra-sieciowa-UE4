@@ -85,13 +85,13 @@ bool spacemma::WinTCPServer::isListening()
     return serverSocket != INVALID_SOCKET;
 }
 
-bool spacemma::WinTCPServer::acceptClient()
+unsigned short spacemma::WinTCPServer::acceptClient()
 {
     clientSocket = accept(serverSocket, static_cast<sockaddr*>(nullptr), nullptr);
     if (clientSocket == INVALID_SOCKET)
     {
         SERVER_ERROR("Failed to accept a client connection ({})!", WSAGetLastError());
-        return false;
+        return 0;
     }
     sockaddr_in addr;
     int addrSize{sizeof(addr)};
@@ -114,7 +114,7 @@ bool spacemma::WinTCPServer::acceptClient()
         }
     }
     closeServer();
-    return true;
+    return addr.sin_port;
 }
 
 bool spacemma::WinTCPServer::send(gsl::not_null<ByteBuffer*> buff)

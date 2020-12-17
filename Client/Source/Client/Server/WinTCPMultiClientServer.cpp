@@ -92,7 +92,7 @@ bool spacemma::WinTCPMultiClientServer::isListening()
     return serverSocket != INVALID_SOCKET;
 }
 
-bool spacemma::WinTCPMultiClientServer::acceptClient()
+unsigned short spacemma::WinTCPMultiClientServer::acceptClient()
 {
     ClientData* data = getClientData(0U);
     if (data)
@@ -101,7 +101,7 @@ bool spacemma::WinTCPMultiClientServer::acceptClient()
         if (clientSocket == INVALID_SOCKET)
         {
             SERVER_ERROR("Failed to accept a client connection ({})!", WSAGetLastError());
-            return false;
+            return 0;
         }
         sockaddr_in addr;
         int addrSize{ sizeof(addr) };
@@ -110,7 +110,7 @@ bool spacemma::WinTCPMultiClientServer::acceptClient()
             SERVER_WARN("Accepted connection, but getpeername failed ({})!", WSAGetLastError());
             SERVER_ERROR("Unable to acquire the client port. Closing connection!");
             closesocket(clientSocket);
-            return false;
+            return 0;
         }
         char buff[64]{ 0 };
         PCSTR str = InetNtopA(AF_INET, &address.sin_addr, buff, 64);
@@ -124,9 +124,9 @@ bool spacemma::WinTCPMultiClientServer::acceptClient()
         }
         data->port = addr.sin_port;
         data->socket = clientSocket;
-        return true;
+        return addr.sin_port;
     }
-    return false;
+    return 0;
 }
 
 unsigned char spacemma::WinTCPMultiClientServer::getClientCount() const

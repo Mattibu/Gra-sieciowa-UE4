@@ -20,8 +20,8 @@ namespace spacemma
         virtual bool isListening() = 0;
         /**
          * Attempts to accept a pending client connection. This is a blocking call.
-         * Returns true if a client connection was established, false otherwise.
+         * Returns client port if a client connection was established, 0 otherwise.
          */
-        virtual bool acceptClient() = 0;
+        virtual unsigned short acceptClient() = 0;
     };
 }

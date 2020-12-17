@@ -16,7 +16,7 @@ namespace spacemma
         WinTCPServer& operator=(WinTCPServer&&) = delete;
         bool bindAndListen(gsl::cstring_span ipAddress, unsigned short port) override;
         bool isListening() override;
-        bool acceptClient() override;
+        unsigned short acceptClient() override;
         bool send(gsl::not_null<ByteBuffer*> buff) override;
         ByteBuffer* receive() override;
         bool shutdown() override;

@@ -12,6 +12,12 @@ namespace spacemma
         char recvBuffer[TCP_SOCKET_BUFFER_SIZE]{};
     };
 
+    struct ClientBuffers
+    {
+        std::recursive_mutex bufferMutex{};
+        std::vector<ByteBuffer*> buffers{}; // todo: change it to queue
+    };
+
     /**
      * A multi-client TCP server implementation.
      * TODO: remove race conditions
@@ -27,7 +33,7 @@ namespace spacemma
         WinTCPMultiClientServer& operator=(WinTCPMultiClientServer&&) = delete;
         bool bindAndListen(gsl::cstring_span ipAddress, unsigned short port) override;
         bool isListening() override;
-        bool acceptClient() override;
+        unsigned short acceptClient() override;
         unsigned char getClientCount() const;
         std::vector<unsigned short> getClientPorts() const;
         bool isClientAlive(unsigned short clientPort) const;
