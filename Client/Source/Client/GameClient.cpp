@@ -41,6 +41,7 @@ void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
+    SERVER_DEBUG("Starting threadConnect...");
     do
     {
         std::lock_guard lock(clt->connectionMutex);
@@ -57,11 +58,13 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
             SERVER_ERROR("Failed to connect to server");
         }
     } while (!thread->isInterrupted() && !clt->tcpClient.isConnected());
+    SERVER_DEBUG("Stopping threadConnect...");
 }
 
 void AGameClient::threadReceive(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
+    SERVER_DEBUG("Starting threadReceive...");
     do
     {
         ByteBuffer* buffer = clt->tcpClient.receive();
@@ -71,12 +74,14 @@ void AGameClient::threadReceive(gsl::not_null<Thread*> thread, void* client)
             clt->receivedPackets.push_back(buffer);
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadReceive...");
 }
 
 void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
     ByteBuffer* toSend{ nullptr };
+    SERVER_DEBUG("Starting threadSend...");
     do
     {
         {
@@ -94,12 +99,14 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
             toSend = nullptr;
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadSend...");
 }
 
 void AGameClient::threadProcessPackets(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
     ByteBuffer* packet{ nullptr };
+    SERVER_DEBUG("Starting threadProcessPackets...");
     do
     {
         {
@@ -117,6 +124,7 @@ void AGameClient::threadProcessPackets(gsl::not_null<Thread*> thread, void* clie
             packet = nullptr;
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadProcessPackets...");
 }
 
 void AGameClient::send(gsl::not_null<ByteBuffer*> packet)

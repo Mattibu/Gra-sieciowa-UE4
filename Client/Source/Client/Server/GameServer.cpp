@@ -81,6 +81,7 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* server)
 {
     AGameServer* srv = reinterpret_cast<AGameServer*>(server);
+    SERVER_DEBUG("Starting threadAcceptClients...");
     do
     {
         if (srv->players.size() < srv->MAX_CLIENTS)
@@ -105,6 +106,7 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
             }
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadAcceptClients...");
 }
 
 void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
@@ -115,6 +117,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
     arg->received = true;
     ClientBuffers* cb = srv->perClientSendBuffers[port];
     ByteBuffer* currentBuff{ nullptr };
+    SERVER_DEBUG("Starting threadSend({})...", port);
     do
     {
         {
@@ -135,6 +138,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadSend({})...", port);
 }
 
 void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
@@ -143,6 +147,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
     AGameServer* srv = reinterpret_cast<AGameServer*>(arg->server);
     unsigned short port = arg->port;
     arg->received = true;
+    SERVER_DEBUG("Starting threadReceive({})...", port);
     do
     {
         ByteBuffer* buffer = srv->tcpServer.receive(port);
@@ -152,6 +157,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
             srv->receivedPackets.push_back({ port, buffer });
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopping threadReceive({})...", port);
 }
 
 void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server)
@@ -159,6 +165,7 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
     AGameServer* srv = reinterpret_cast<AGameServer*>(server);
     ByteBuffer* currentBuff{ nullptr };
     unsigned short clientPort{};
+    SERVER_DEBUG("Starting threadProcessPackets...");
     do
     {
         {
@@ -177,6 +184,7 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
+    SERVER_DEBUG("Stopped threadProcessPackets...");
 }
 
 void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
