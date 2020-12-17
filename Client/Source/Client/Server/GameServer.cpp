@@ -209,7 +209,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
             if (packet)
             {
-
+                SERVER_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
+                             packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                             packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
             break;
         }
@@ -218,7 +220,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-
+                SERVER_DEBUG("B2B_ChangeSpeed: {}, {}, [{},{},{}]",
+                             packet->playerId, packet->speedValue,
+                             packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }
@@ -227,7 +231,8 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(buffer);
             if (packet)
             {
-
+                SERVER_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                             packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
             }
             break;
         }
@@ -236,7 +241,8 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(buffer);
             if (packet)
             {
-
+                SERVER_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                             packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
             }
             break;
         }
@@ -245,7 +251,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(buffer);
             if (packet)
             {
-
+                SERVER_DEBUG("B2B_RopeDetach: {}", packet->playerId);
             }
             break;
         }
