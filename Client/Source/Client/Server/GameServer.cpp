@@ -12,21 +12,19 @@ struct ThreadArgs
     std::atomic_bool received{ false };
 };
 
-// Sets default values
 AGameServer::AGameServer()
 {
-    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
     PrimaryActorTick.bCanEverTick = true;
 
 }
 
-// Called when the game starts or when spawned
 void AGameServer::BeginPlay()
 {
     Super::BeginPlay();
     if (tcpServer.bindAndListen("127.0.0.1", 4444))
     {
         acceptThread = new WinThread();
+        processPacketsThread = new WinThread();
         serverActive = true;
         acceptThread->run(threadAcceptClients, this);
         processPacketsThread->run(threadProcessPackets, this);
@@ -43,9 +41,12 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
     {
         serverActive = false;
         acceptThread->interrupt();
-        acceptThread->join();
         processPacketsThread->interrupt();
+        tcpServer.close();
+        acceptThread->join();
         processPacketsThread->join();
+        delete acceptThread;
+        delete processPacketsThread;
         for (const auto& pair : sendThreads)
         {
             pair.second->interrupt();
@@ -74,7 +75,6 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
             delete pair.second;
         }
         perClientSendBuffers.clear();
-        tcpServer.close();
     }
 }
 
@@ -201,8 +201,7 @@ void AGameServer::sendTo(unsigned short client, gsl::not_null<ByteBuffer*> buffe
 
 void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteBuffer*> buffer)
 {
-    gsl::span<unsigned char> span = buffer->getSpan();
-    Header header = static_cast<Header>(span[0]);
+    Header header = static_cast<Header>(*buffer->getPointer());
     switch (header)
     {
         case B2B_HShoot:
@@ -210,7 +209,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_Shoot -> ");
+
             }
             break;
         }
@@ -258,7 +257,6 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
     }
 }
 
-// Called every frame
 void AGameServer::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);

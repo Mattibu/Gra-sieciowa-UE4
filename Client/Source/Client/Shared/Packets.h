@@ -164,4 +164,16 @@ namespace spacemma
         uint8_t padding{};
         uint16_t playerId{};
     };
+
+    template<typename T>
+    T* reinterpretPacket(gsl::not_null<ByteBuffer*> packet)
+    {
+        if (packet->getUsedSize() != sizeof(T))
+        {
+            SERVER_ERROR("Invalid packet {} size ({} != {})!",
+                         *packet->getPointer(), sizeof(T), packet->getUsedSize());
+            return nullptr;
+        }
+        return reinterpret_cast<T*>(packet->getPointer());
+    }
 }
