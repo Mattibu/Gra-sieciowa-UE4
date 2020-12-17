@@ -38,4 +38,6 @@ private:
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
     std::map<unsigned short, AActor*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
+    gsl::cstring_span serverIpAddress{ "127.0.0.1" };
+    unsigned short serverPort{ 4444 };
 };

@@ -21,7 +21,7 @@ AGameServer::AGameServer()
 void AGameServer::BeginPlay()
 {
     Super::BeginPlay();
-    if (tcpServer.bindAndListen("127.0.0.1", 4444))
+    if (tcpServer.bindAndListen(serverIpAddress, serverPort))
     {
         acceptThread = new WinThread();
         processPacketsThread = new WinThread();

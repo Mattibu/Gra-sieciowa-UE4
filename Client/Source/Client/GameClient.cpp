@@ -44,7 +44,7 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
     do
     {
         std::lock_guard lock(clt->connectionMutex);
-        if (clt->tcpClient.connect("127.0.0.1", 4444))
+        if (clt->tcpClient.connect(clt->serverIpAddress, clt->serverPort))
         {
             clt->receiveThread = new WinThread();
             clt->sendThread = new WinThread();

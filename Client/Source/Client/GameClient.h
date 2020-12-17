@@ -29,4 +29,6 @@ private:
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
     spacemma::WinTCPClient tcpClient{ bufferPool };
+    gsl::cstring_span serverIpAddress{ "127.0.0.1" };
+    unsigned short serverPort{ 4444 };
 };
