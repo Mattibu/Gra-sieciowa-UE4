@@ -13,16 +13,47 @@ AGameClient::AGameClient()
 void AGameClient::BeginPlay()
 {
     Super::BeginPlay();
-    connectThread = new WinThread();
-    connectThread->run(threadConnect, this);
 }
 
 void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     Super::EndPlay(EndPlayReason);
-    connectThread->interrupt();
-    connectThread->join();
-    delete connectThread;
+    closeConnection();
+}
+
+bool AGameClient::startConnecting()
+{
+    std::lock_guard lock(connectionMutex);
+    if (connectThread || tcpClient.isConnected())
+    {
+        return false;
+    }
+    connectThread = new WinThread();
+    connectThread->run(threadConnect, this);
+    return true;
+}
+
+bool AGameClient::isConnecting()
+{
+    std::lock_guard lock(connectionMutex);
+    return connectThread && !tcpClient.isConnected();
+}
+
+bool AGameClient::isConnected()
+{
+    return tcpClient.isConnected();
+}
+
+bool AGameClient::closeConnection()
+{
+    std::lock_guard lock(connectionMutex);
+    if (connectThread)
+    {
+        connectThread->interrupt();
+        connectThread->join();
+        delete connectThread;
+        connectThread = nullptr;
+    }
     if (tcpClient.isConnected())
     {
         sendThread->interrupt();
@@ -35,7 +66,9 @@ void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
         delete sendThread;
         delete receiveThread;
         delete processPacketsThread;
+        return true;
     }
+    return false;
 }
 
 void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
@@ -44,8 +77,7 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
     SERVER_DEBUG("Starting threadConnect...");
     do
     {
-        std::lock_guard lock(clt->connectionMutex);
-        if (clt->tcpClient.connect(clt->serverIpAddress, clt->serverPort))
+        if (clt->tcpClient.connect(StringCast<ANSICHAR>(*clt->ServerIpAddress).Get(), clt->ServerPort))
         {
             clt->receiveThread = new WinThread();
             clt->sendThread = new WinThread();

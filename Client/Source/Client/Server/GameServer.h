@@ -15,10 +15,21 @@ class CLIENT_API AGameServer : public AActor
 public:
     AGameServer();
     virtual void Tick(float DeltaTime) override;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        FString ServerIpAddress = "127.0.0.1";
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        int32 ServerPort = 4444;
+    UFUNCTION(BlueprintCallable, Category = Server_Management)
+        bool startServer();
+    UFUNCTION(BlueprintCallable, Category = Server_Management)
+        bool isServerRunning() const;
+    UFUNCTION(BlueprintCallable, Category = Server_Management)
+        bool stopServer();
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 private:
+    //todo: switch naming convention to match UE4!
     static void threadAcceptClients(gsl::not_null<spacemma::Thread*> thread, void* server);
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* args);
@@ -26,10 +37,9 @@ private:
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void processPacket(unsigned short sourceClient, gsl::not_null<spacemma::ByteBuffer*> buffer);
-    const unsigned char MAX_CLIENTS{ 8 };
     std::atomic_bool serverActive{ false };
     std::recursive_mutex connectionMutex{};
-    std::mutex receiveMutex{};
+    std::mutex receiveMutex{}, startStopMutex{};
     spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
     spacemma::WinTCPMultiClientServer tcpServer{ bufferPool, MAX_CLIENTS };
     spacemma::Thread* acceptThread{}, * processPacketsThread{};
@@ -38,6 +48,5 @@ private:
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
     std::map<unsigned short, AActor*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
-    gsl::cstring_span serverIpAddress{ "127.0.0.1" };
-    unsigned short serverPort{ 4444 };
+    const unsigned char MAX_CLIENTS{ 8 };
 };

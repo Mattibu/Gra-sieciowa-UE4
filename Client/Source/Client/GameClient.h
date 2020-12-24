@@ -17,6 +17,18 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
+        FString ServerIpAddress = "127.0.0.1";
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
+        int32 ServerPort = 4444;
+    UFUNCTION(BlueprintCallable, Category = Connection_Management)
+        bool startConnecting();
+    UFUNCTION(BlueprintCallable, Category = Connection_Management)
+        bool isConnecting();
+    UFUNCTION(BlueprintCallable, Category = Connection_Management)
+        bool isConnected();
+    UFUNCTION(BlueprintCallable, Category = Connection_Management)
+        bool closeConnection();
 private:
     static void threadConnect(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* client);
@@ -29,6 +41,4 @@ private:
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
     spacemma::WinTCPClient tcpClient{ bufferPool };
-    gsl::cstring_span serverIpAddress{ "127.0.0.1" };
-    unsigned short serverPort{ 4444 };
 };

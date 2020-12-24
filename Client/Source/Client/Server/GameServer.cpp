@@ -18,25 +18,36 @@ AGameServer::AGameServer()
 
 }
 
-void AGameServer::BeginPlay()
+bool AGameServer::startServer()
 {
-    Super::BeginPlay();
-    if (tcpServer.bindAndListen(serverIpAddress, serverPort))
+    std::lock_guard lock(startStopMutex);
+    if (serverActive)
+    {
+        SERVER_WARN("Attempted to start server but it's already running!");
+        return false;
+    }
+    SERVER_DEBUG("Starting server...");
+    if (tcpServer.bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
     {
         acceptThread = new WinThread();
         processPacketsThread = new WinThread();
         serverActive = true;
         acceptThread->run(threadAcceptClients, this);
         processPacketsThread->run(threadProcessPackets, this);
-    } else
-    {
-        SERVER_ERROR("Game server initialization failed!");
+        return true;
     }
+    SERVER_ERROR("Game server initialization failed!");
+    return false;
 }
 
-void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
+bool AGameServer::isServerRunning() const
 {
-    Super::EndPlay(EndPlayReason);
+    return serverActive;
+}
+
+bool AGameServer::stopServer()
+{
+    std::lock_guard lock(startStopMutex);
     if (serverActive)
     {
         serverActive = false;
@@ -75,7 +86,20 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
             delete pair.second;
         }
         perClientSendBuffers.clear();
+        return true;
     }
+    return false;
+}
+
+void AGameServer::BeginPlay()
+{
+    Super::BeginPlay();
+}
+
+void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    Super::EndPlay(EndPlayReason);
+    stopServer();
 }
 
 void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* server)

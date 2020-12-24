@@ -6,7 +6,8 @@ spacemma::WinTCPMultiClientServer::WinTCPMultiClientServer(BufferPool& bufferPoo
 {
     if (!maxClients)
     {
-        throw std::exception("Max client amount must be greater than zero!");
+        SERVER_ERROR("Max client amount must be greater than zero!");
+        //throw std::exception("Max client amount must be greater than zero!");
     }
     clientData = gsl::make_span<ClientData>(new ClientData[maxClients]{}, maxClients);
 }
