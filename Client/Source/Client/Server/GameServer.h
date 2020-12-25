@@ -48,7 +48,7 @@ private:
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void disconnectClient(unsigned short client);
     void processPacket(unsigned short sourceClient, gsl::not_null<spacemma::ByteBuffer*> buffer);
-    bool isClientAvailable(unsigned short client) const;
+    bool isClientAvailable(unsigned short client);
     std::recursive_mutex connectionMutex{};
     std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;

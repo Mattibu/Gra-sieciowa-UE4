@@ -428,7 +428,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
     }
 }
 
-bool AGameServer::isClientAvailable(unsigned short client) const
+bool AGameServer::isClientAvailable(unsigned short client)
 {
     std::lock_guard lock(liveClientsMutex);
     return liveClients.find(client) != liveClients.end();
