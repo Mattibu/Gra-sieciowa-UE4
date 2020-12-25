@@ -21,6 +21,8 @@ public:
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 ServerPort = 4444;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        int32 MaxClients = 8;
     UFUNCTION(BlueprintCallable, Category = Server_Management)
         bool startServer();
     UFUNCTION(BlueprintCallable, Category = Server_Management)
@@ -47,14 +49,13 @@ private:
     std::recursive_mutex connectionMutex{};
     std::mutex receiveMutex{}, startStopMutex{};
     spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
-    spacemma::WinTCPMultiClientServer tcpServer{ bufferPool, MAX_CLIENTS };
+    std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
     spacemma::Thread* acceptThread{}, * processPacketsThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
     std::map<unsigned short, APawn*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
-    const unsigned char MAX_CLIENTS{ 8 };
 };
 
 template<typename T>

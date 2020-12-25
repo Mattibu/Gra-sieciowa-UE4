@@ -80,10 +80,10 @@ bool spacemma::WinTCPMultiClientServer::bindAndListen(gsl::cstring_span ipAddres
     if (str == nullptr)
     {
         SPACEMMA_WARN("Unable to convert the address to string ({})!", WSAGetLastError());
-        SPACEMMA_DEBUG("Socket bound to and listening!");
+        SPACEMMA_DEBUG("Socket bound and listening for {} clients!", maxClients);
     } else
     {
-        SPACEMMA_DEBUG("Socket bound to {}:{} and listening!", str, address.sin_port);
+        SPACEMMA_DEBUG("Socket bound to {}:{} and listening for {} clients!", str, address.sin_port, maxClients);
     }
     return true;
 }

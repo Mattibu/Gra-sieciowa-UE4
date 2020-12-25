@@ -26,8 +26,14 @@ bool AGameServer::startServer()
         SPACEMMA_WARN("Attempted to start server but it's already running!");
         return false;
     }
+    if (MaxClients <= 0 || MaxClients > 255)
+    {
+        SPACEMMA_ERROR("Invalid MaxClients value ({})!", MaxClients);
+        return false;
+    }
     SPACEMMA_DEBUG("Starting server...");
-    if (tcpServer.bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
+    tcpServer = std::make_unique<WinTCPMultiClientServer>(bufferPool, static_cast<unsigned char>(MaxClients));
+    if (tcpServer->bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
     {
         acceptThread = new WinThread();
         processPacketsThread = new WinThread();
@@ -53,7 +59,7 @@ bool AGameServer::stopServer()
         serverActive = false;
         acceptThread->interrupt();
         processPacketsThread->interrupt();
-        tcpServer.close();
+        tcpServer->close();
         acceptThread->join();
         processPacketsThread->join();
         delete acceptThread;
@@ -86,6 +92,7 @@ bool AGameServer::stopServer()
             delete pair.second;
         }
         perClientSendBuffers.clear();
+        tcpServer.reset();
         return true;
     }
     return false;
@@ -108,9 +115,9 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
     SPACEMMA_DEBUG("Starting threadAcceptClients...");
     do
     {
-        if (srv->players.size() < srv->MAX_CLIENTS)
+        if (srv->players.size() < srv->MaxClients)
         {
-            unsigned short port = srv->tcpServer.acceptClient();
+            unsigned short port = srv->tcpServer->acceptClient();
             if (port)
             {
                 SPACEMMA_INFO("Accepted client #{}!", port);
@@ -163,7 +170,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         }
         if (currentBuff)
         {
-            if (!srv->tcpServer.send(currentBuff, port))
+            if (!srv->tcpServer->send(currentBuff, port))
             {
                 SPACEMMA_ERROR("Failed to send {} data to client {}!", currentBuff->getUsedSize(), port);
             }
@@ -183,7 +190,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
     SPACEMMA_DEBUG("Starting threadReceive({})...", port);
     do
     {
-        ByteBuffer* buffer = srv->tcpServer.receive(port);
+        ByteBuffer* buffer = srv->tcpServer->receive(port);
         if (buffer)
         {
             std::lock_guard lock(srv->receiveMutex);
