@@ -241,8 +241,24 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), FActorSpawnParameters{});
-                otherPlayers.emplace(packet->playerId, actor);
+                if (packet->playerId == playerId)
+                {
+                    SetActorLocation(packet->location.asFVector());
+                    SetActorRotation(packet->rotator.asFRotator());
+                } else
+                {
+                    FActorSpawnParameters params{};
+                    params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+                    AShooterPlayer* actor =
+                        GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), params);
+                    if (actor == nullptr)
+                    {
+                        SPACEMMA_ERROR("Failed to create player {}!", packet->playerId);
+                    } else
+                    {
+                        otherPlayers.emplace(packet->playerId, actor);
+                    }
+                }
             }
             break;
         }

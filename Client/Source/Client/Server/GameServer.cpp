@@ -155,8 +155,8 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                 } else
                 {
                     std::lock_guard lock2(srv->spawnAwaitingMutex);
-                    srv->playersAwaitingSpawn.insert(port);
                 }
+                srv->playersAwaitingSpawn.insert(port);
                 srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
             }
         }
@@ -404,15 +404,23 @@ void AGameServer::handlePlayerAwaitingSpawn()
     if (clientPort)
     {
         SPACEMMA_DEBUG("Spawning player {}...", clientPort);
-        AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{}, FRotator{}, FActorSpawnParameters{});
+        FActorSpawnParameters params{};
+        params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+        AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{100.0f, 100.0f, 100.0f}, FRotator{}, params);
         if (actor == nullptr)
         {
             SPACEMMA_ERROR("Failed to spawn player {}!", clientPort);
         } else
         {
-            players.emplace(clientPort, actor);
             sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
                             actor->GetActorLocation(), actor->GetActorRotation() });
+            // tell the player about other players
+            for (const auto& pair : players)
+            {
+                sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
+                             pair.second->GetActorLocation(), pair.second->GetActorRotation() });
+            }
+            players.emplace(clientPort, actor);
         }
     }
 }
