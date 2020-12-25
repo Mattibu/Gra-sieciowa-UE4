@@ -1,6 +1,6 @@
 #pragma once
 #include "Thread.h"
-#include "ServerLog.h"
+#include "SpaceLog.h"
 
 #include <mutex>
 

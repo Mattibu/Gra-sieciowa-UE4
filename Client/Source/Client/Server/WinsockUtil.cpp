@@ -7,10 +7,10 @@ bool spacemma::WinsockUtil::wsaStartup(void* owner)
     if (wsaInvokers.empty())
     {
         WSADATA wsaData;
-        SERVER_DEBUG("Running WSAStartup...");
+        SPACEMMA_DEBUG("Running WSAStartup...");
         if (int ret = WSAStartup(MAKEWORD(2, 2), &wsaData); ret != 0)
         {
-            SERVER_ERROR("WSAStartup failed ({})!", ret);
+            SPACEMMA_ERROR("WSAStartup failed ({})!", ret);
             return false;
         }
         wsaInvokers.push_back(owner);
@@ -31,10 +31,10 @@ bool spacemma::WinsockUtil::wsaCleanup(void* owner)
     }
     if (wsaInvokers.empty())
     {
-        SERVER_DEBUG("Running WSACleanup...");
+        SPACEMMA_DEBUG("Running WSACleanup...");
         if (int ret = WSACleanup(); ret != 0)
         {
-            SERVER_ERROR("WSACleanup failed ({})!", WSAGetLastError());
+            SPACEMMA_ERROR("WSACleanup failed ({})!", WSAGetLastError());
             return false;
         }
     }

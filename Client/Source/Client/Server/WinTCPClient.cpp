@@ -1,5 +1,5 @@
 #include "WinTCPClient.h"
-#include "ServerLog.h"
+#include "SpaceLog.h"
 
 spacemma::WinTCPClient::WinTCPClient(BufferPool& bufferPool) : TCPClient(bufferPool) {}
 
@@ -17,10 +17,10 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
 {
     if (ipAddress.empty())
     {
-        SERVER_ERROR("Provided IP address is empty!");
+        SPACEMMA_ERROR("Provided IP address is empty!");
         return false;
     }
-    SERVER_DEBUG("Attempting to connect to {}:{}...", ipAddress.cbegin(), port);
+    SPACEMMA_DEBUG("Attempting to connect to {}:{}...", ipAddress.cbegin(), port);
     if (!WinsockUtil::wsaStartup(this))
     {
         return false;
@@ -30,7 +30,7 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
     socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket == INVALID_SOCKET)
     {
-        SERVER_ERROR("Failed to create socket ({})!", WSAGetLastError());
+        SPACEMMA_ERROR("Failed to create socket ({})!", WSAGetLastError());
         WinsockUtil::wsaCleanup(this);
         return false;
     }
@@ -39,11 +39,11 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
     {
         if (ret == 0)
         {
-            SERVER_ERROR("An invalid IP address was provided!");
+            SPACEMMA_ERROR("An invalid IP address was provided!");
         }
         else
         {
-            SERVER_ERROR("Failed to convert the IP address ({})!", WSAGetLastError());
+            SPACEMMA_ERROR("Failed to convert the IP address ({})!", WSAGetLastError());
         }
         shutdown();
         close();
@@ -52,13 +52,13 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
     }
     if (::connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR)
     {
-        SERVER_ERROR("Connection failed ({})!", WSAGetLastError());
+        SPACEMMA_ERROR("Connection failed ({})!", WSAGetLastError());
         shutdown();
         close();
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    SERVER_DEBUG("Connection established!");
+    SPACEMMA_DEBUG("Connection established!");
     return true;
 }
 
@@ -67,7 +67,7 @@ bool spacemma::WinTCPClient::send(gsl::not_null<ByteBuffer*> buff)
     if (::send(socket, reinterpret_cast<char*>(buff->getPointer()), static_cast<int>(buff->getUsedSize()), 0) ==
         SOCKET_ERROR)
     {
-        SERVER_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), WSAGetLastError());
+        SPACEMMA_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), WSAGetLastError());
         return false;
     }
     return true;
@@ -82,7 +82,7 @@ spacemma::ByteBuffer* spacemma::WinTCPClient::receive()
     }
     if (received == SOCKET_ERROR)
     {
-        SERVER_ERROR("Failed to receive data ({})!", WSAGetLastError());
+        SPACEMMA_ERROR("Failed to receive data ({})!", WSAGetLastError());
         return nullptr;
     }
     ByteBuffer* buff = bufferPool->getBuffer(received);
@@ -96,7 +96,7 @@ bool spacemma::WinTCPClient::shutdown()
     {
         if (::shutdown(socket, SD_BOTH) == SOCKET_ERROR)
         {
-            SERVER_WARN("Failed to shut down socket ({})!", WSAGetLastError());
+            SPACEMMA_WARN("Failed to shut down socket ({})!", WSAGetLastError());
             return false;
         }
     }
@@ -109,7 +109,7 @@ bool spacemma::WinTCPClient::close()
     {
         if (closesocket(socket) == SOCKET_ERROR)
         {
-            SERVER_WARN("Failed to close socket ({})!", WSAGetLastError());
+            SPACEMMA_WARN("Failed to close socket ({})!", WSAGetLastError());
             return false;
         }
         socket = INVALID_SOCKET;

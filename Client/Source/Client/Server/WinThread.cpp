@@ -1,5 +1,5 @@
 #include "WinThread.h"
-#include "ServerLog.h"
+#include "SpaceLog.h"
 
 spacemma::WinThread::~WinThread()
 {
@@ -7,10 +7,10 @@ spacemma::WinThread::~WinThread()
     {
         if (running && !join())
         {
-            SERVER_WARN("Failed to join thread while destroying the object, terminating...");
+            SPACEMMA_WARN("Failed to join thread while destroying the object, terminating...");
             if (!terminate())
             {
-                SERVER_ERROR("Failed to terminate thread while destroying the object!");
+                SPACEMMA_ERROR("Failed to terminate thread while destroying the object!");
             }
         }
         closeThreadHandle();
@@ -22,7 +22,7 @@ bool spacemma::WinThread::run(ThreadFunc func, void* _ptr)
     std::lock_guard lock(mutex);
     if (running)
     {
-        SERVER_WARN("Attempted to invoke run on a thread that is already running!");
+        SPACEMMA_WARN("Attempted to invoke run on a thread that is already running!");
         return false;
     }
     running = true;
@@ -36,7 +36,7 @@ bool spacemma::WinThread::run(ThreadFunc func, void* _ptr)
     threadHandle = CreateThread(nullptr, 0ULL, threadProc, this, 0UL, nullptr);
     if (!threadHandle)
     {
-        SERVER_ERROR("Failed to create a thread ({})!", GetLastError());
+        SPACEMMA_ERROR("Failed to create a thread ({})!", GetLastError());
         running = false;
         return false;
     }
@@ -50,7 +50,7 @@ bool spacemma::WinThread::isRunning()
         DWORD exitCode;
         if (!GetExitCodeThread(threadHandle, &exitCode))
         {
-            SERVER_WARN("Failed to check thread exit code ({})!", GetLastError());
+            SPACEMMA_WARN("Failed to check thread exit code ({})!", GetLastError());
             return true;
         }
         switch (exitCode)
@@ -58,12 +58,12 @@ bool spacemma::WinThread::isRunning()
         case STILL_ACTIVE:
             return true;
         case THREAD_RESULT_TERMINATED:
-            SERVER_WARN("Detected thread termination exit code!");
+            SPACEMMA_WARN("Detected thread termination exit code!");
             break;
         case THREAD_RESULT_SUCCESS:
             break;
         default:
-            SERVER_WARN("Unrecognized thread exit code {}!", exitCode);
+            SPACEMMA_WARN("Unrecognized thread exit code {}!", exitCode);
             break;
         }
         running = false;
@@ -94,14 +94,14 @@ bool spacemma::WinThread::join()
     switch (waitResult)
     {
     case WAIT_TIMEOUT:
-        SERVER_WARN("Thread join attempt timed out!");
+        SPACEMMA_WARN("Thread join attempt timed out!");
         return false;
     case WAIT_FAILED:
-        SERVER_ERROR("Thread join attempt failed ({})!", GetLastError());
+        SPACEMMA_ERROR("Thread join attempt failed ({})!", GetLastError());
         running = false;
         return false;
     case WAIT_ABANDONED:
-        SERVER_WARN("Thread join attempt resulted in WAIT_ABANDONED!");[[fallthrough]];
+        SPACEMMA_WARN("Thread join attempt resulted in WAIT_ABANDONED!");[[fallthrough]];
     default:
         [[fallthrough]];
     case WAIT_OBJECT_0:
@@ -120,7 +120,7 @@ bool spacemma::WinThread::terminate()
     }
     if (!TerminateThread(threadHandle, 1UL))
     {
-        SERVER_WARN("Thread termination attempt failed ({})!", GetLastError());
+        SPACEMMA_WARN("Thread termination attempt failed ({})!", GetLastError());
         return false;
     }
     running = false;
@@ -139,7 +139,7 @@ void spacemma::WinThread::closeThreadHandle()
     {
         if (!CloseHandle(threadHandle))
         {
-            SERVER_WARN("Failed to close the thread handle!");
+            SPACEMMA_WARN("Failed to close the thread handle!");
         }
         else
         {
@@ -158,7 +158,7 @@ DWORD WINAPI spacemma::WinThread::threadProc(LPVOID param)
     }
     else
     {
-        SERVER_WARN("An empty thread has been started!");
+        SPACEMMA_WARN("An empty thread has been started!");
     }
     return THREAD_RESULT_SUCCESS;
 }

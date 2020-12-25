@@ -34,7 +34,11 @@ private:
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server);
+    template<typename T>
+    void sendPacketToAll(T packet);
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
+    template<typename T>
+    void sendPacketTo(unsigned short client, T packet);
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void processPacket(unsigned short sourceClient, gsl::not_null<spacemma::ByteBuffer*> buffer);
     std::atomic_bool serverActive{ false };
@@ -46,7 +50,24 @@ private:
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
-    std::map<unsigned short, AActor*> players{};
+    std::map<unsigned short, APawn*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
     const unsigned char MAX_CLIENTS{ 8 };
 };
+
+template<typename T>
+void AGameServer::sendPacketToAll(T packet)
+{
+    for (const auto& pair : perClientSendBuffers)
+    {
+        sendPacketTo(pair.first, packet);
+    }
+}
+
+template<typename T>
+void AGameServer::sendPacketTo(unsigned short client, T packet)
+{
+    spacemma::ByteBuffer* buff = bufferPool.getBuffer(sizeof(T));
+    memcpy(buff->getPointer(), &packet, sizeof(T));
+    sendTo(client, buff);
+}

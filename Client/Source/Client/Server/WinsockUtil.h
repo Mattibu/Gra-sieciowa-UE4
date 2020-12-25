@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ServerLog.h"
+#include "SpaceLog.h"
 
 #include <WS2tcpip.h>
 #include <vector>

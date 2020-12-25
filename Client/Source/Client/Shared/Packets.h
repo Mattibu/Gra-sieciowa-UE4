@@ -14,6 +14,7 @@ namespace spacemma
     /// </summary>
     enum Header : uint8_t
     {
+        S2C_HProvidePlayerId,
         S2C_HCreatePlayer,
         S2C_HDestroyPlayer,
         B2B_HShoot,
@@ -31,6 +32,8 @@ namespace spacemma
         {
             return FVector2D(x, y);
         }
+        NetVector2D() = default;
+        NetVector2D(FVector2D fvec) : x(fvec.X), y(fvec.Y) {}
         float x;
         float y;
     };
@@ -41,6 +44,8 @@ namespace spacemma
         {
             return FVector(x, y, z);
         }
+        NetVector() = default;
+        NetVector(FVector fvec) : x(fvec.X), y(fvec.Y), z(fvec.Z) {}
         float x;
         float y;
         float z;
@@ -52,9 +57,22 @@ namespace spacemma
         {
             return FRotator(pitch, yaw, roll);
         }
+        NetRotator() = default;
+        NetRotator(FRotator frot) : pitch(frot.Pitch), yaw(frot.Yaw), roll(frot.Roll) {}
         float pitch;
         float yaw;
         float roll;
+    };
+
+    /**
+     * Sent to every player after creating a connection.
+     * Tells the player what his/her ID is.
+     */
+    struct S2C_ProvidePlayerId
+    {
+        uint8_t header{ S2C_HProvidePlayerId };
+        uint8_t padding{};
+        uint16_t playerId{};
     };
 
     /**
@@ -170,7 +188,7 @@ namespace spacemma
     {
         if (packet->getUsedSize() != sizeof(T))
         {
-            SERVER_ERROR("Invalid packet {} size ({} != {})!",
+            SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
                          *packet->getPointer(), sizeof(T), packet->getUsedSize());
             return nullptr;
         }

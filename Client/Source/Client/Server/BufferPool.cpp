@@ -1,5 +1,5 @@
 #include "BufferPool.h"
-#include "ServerLog.h"
+#include "SpaceLog.h"
 
 #include <mutex>
 
@@ -8,11 +8,11 @@ spacemma::BufferPool::BufferPool(size_t maxSize) : maxSize(maxSize) {}
 spacemma::BufferPool::~BufferPool()
 {
     std::lock_guard lock(mutex);
-    SERVER_DEBUG("Clearing buffer pool. {} UB,{} FB,{} US,{} FS,{} TS", usedBuffers.size(), freeBuffers.size(),
+    SPACEMMA_DEBUG("Clearing buffer pool. {} UB,{} FB,{} US,{} FS,{} TS", usedBuffers.size(), freeBuffers.size(),
                  usedSize, getFreeSize(), byteSize);
     if (usedBuffers.size())
     {
-        SERVER_WARN("The buffer pool contains buffers that are currently in use!");
+        SPACEMMA_WARN("The buffer pool contains buffers that are currently in use!");
     }
     for (ByteBuffer* buff : usedBuffers)
     {
@@ -34,7 +34,7 @@ spacemma::ByteBuffer* spacemma::BufferPool::getBuffer(size_t size)
         buff->setUsedSize(size);
         freeBuffers.erase(it);
         addUsed(buff);
-        SERVER_TRACE("Reusing buffer {:x} of size {} for desired size {}.", reinterpret_cast<uintptr_t>(buff),
+        SPACEMMA_TRACE("Reusing buffer {:x} of size {} for desired size {}.", reinterpret_cast<uintptr_t>(buff),
                      buff->getTotalByteSize(), size);
         return buff;
     }
@@ -99,7 +99,7 @@ size_t spacemma::BufferPool::getMaxSize() const
 bool spacemma::BufferPool::freeBuffer(gsl::not_null<ByteBuffer*> buffer, bool remove)
 {
     std::lock_guard lock(mutex);
-    SERVER_TRACE("Freeing buffer {:x} of size {} ({}).", reinterpret_cast<uintptr_t>(buffer),
+    SPACEMMA_TRACE("Freeing buffer {:x} of size {} ({}).", reinterpret_cast<uintptr_t>(buffer),
                  buffer->getTotalByteSize(), remove);
     std::vector<ByteBuffer*>::iterator it = std::find(usedBuffers.begin(), usedBuffers.end(), buffer);
     if (it == usedBuffers.end())
@@ -132,7 +132,7 @@ spacemma::ByteBuffer* spacemma::BufferPool::addBuffer(size_t size, bool setFree)
     if (byteSize + size <= maxSize)
     {
         ByteBuffer* buff = new ByteBuffer(size);
-        SERVER_TRACE("Adding new buffer {:x} of size {} ({})", reinterpret_cast<uintptr_t>(buff), size, setFree);
+        SPACEMMA_TRACE("Adding new buffer {:x} of size {} ({})", reinterpret_cast<uintptr_t>(buff), size, setFree);
         byteSize += size;
         if (setFree)
         {
@@ -140,7 +140,7 @@ spacemma::ByteBuffer* spacemma::BufferPool::addBuffer(size_t size, bool setFree)
         }
         return buff;
     }
-    SERVER_ERROR("Attempting to overflow the buffer pool by adding {} bytes (the total size is {}, max size is {})",
+    SPACEMMA_ERROR("Attempting to overflow the buffer pool by adding {} bytes (the total size is {}, max size is {})",
                  size, byteSize, maxSize);
     return nullptr;
 }
@@ -168,14 +168,14 @@ void spacemma::BufferPool::addToFreeBuffers(gsl::not_null<ByteBuffer*> buffer)
 bool spacemma::BufferPool::deleteBuffer(gsl::not_null<ByteBuffer*> buffer, bool checkIfFree)
 {
     std::lock_guard lock(mutex);
-    SERVER_TRACE("Deleting buffer {:x} of size {} ({})", reinterpret_cast<uintptr_t>(buffer),
+    SPACEMMA_TRACE("Deleting buffer {:x} of size {} ({})", reinterpret_cast<uintptr_t>(buffer),
                  buffer->getTotalByteSize(), checkIfFree);
     if (checkIfFree)
     {
         std::vector<ByteBuffer*>::iterator it = std::find(freeBuffers.begin(), freeBuffers.end(), buffer);
         if (it == freeBuffers.end())
         {
-            SERVER_WARN("Failed to remove buffer {:x} as it's being used!", reinterpret_cast<uintptr_t>(buffer.get()));
+            SPACEMMA_WARN("Failed to remove buffer {:x} as it's being used!", reinterpret_cast<uintptr_t>(buffer.get()));
             return false;
         }
         freeBuffers.erase(it);

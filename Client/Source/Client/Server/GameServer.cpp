@@ -1,5 +1,5 @@
 #include "GameServer.h"
-#include "Client/Server/ServerLog.h"
+#include "Client/Server/SpaceLog.h"
 #include "Client/Server/WinThread.h"
 #include "Client/Shared/Packets.h"
 
@@ -23,10 +23,10 @@ bool AGameServer::startServer()
     std::lock_guard lock(startStopMutex);
     if (serverActive)
     {
-        SERVER_WARN("Attempted to start server but it's already running!");
+        SPACEMMA_WARN("Attempted to start server but it's already running!");
         return false;
     }
-    SERVER_DEBUG("Starting server...");
+    SPACEMMA_DEBUG("Starting server...");
     if (tcpServer.bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
     {
         acceptThread = new WinThread();
@@ -36,7 +36,7 @@ bool AGameServer::startServer()
         processPacketsThread->run(threadProcessPackets, this);
         return true;
     }
-    SERVER_ERROR("Game server initialization failed!");
+    SPACEMMA_ERROR("Game server initialization failed!");
     return false;
 }
 
@@ -105,7 +105,7 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* server)
 {
     AGameServer* srv = reinterpret_cast<AGameServer*>(server);
-    SERVER_DEBUG("Starting threadAcceptClients...");
+    SPACEMMA_DEBUG("Starting threadAcceptClients...");
     do
     {
         if (srv->players.size() < srv->MAX_CLIENTS)
@@ -113,6 +113,7 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
             unsigned short port = srv->tcpServer.acceptClient();
             if (port)
             {
+                SPACEMMA_INFO("Accepted client #{}!", port);
                 std::lock_guard lock(srv->connectionMutex);
                 srv->perClientSendBuffers.insert({ port, new ClientBuffers{} });
                 Thread
@@ -126,11 +127,12 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                 while (!args.received);
                 srv->sendThreads.emplace(port, sendThread);
                 srv->receiveThreads.emplace(port, receiveThread);
-                // todo: create and map AActor!
+                srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
+                // todo: create and map APawn!
             }
         }
     } while (!thread->isInterrupted());
-    SERVER_DEBUG("Stopping threadAcceptClients...");
+    SPACEMMA_DEBUG("Stopping threadAcceptClients...");
 }
 
 void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
@@ -141,7 +143,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
     arg->received = true;
     ClientBuffers* cb = srv->perClientSendBuffers[port];
     ByteBuffer* currentBuff{ nullptr };
-    SERVER_DEBUG("Starting threadSend({})...", port);
+    SPACEMMA_DEBUG("Starting threadSend({})...", port);
     do
     {
         {
@@ -156,13 +158,13 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         {
             if (!srv->tcpServer.send(currentBuff, port))
             {
-                SERVER_ERROR("Failed to send {} data to client {}!", currentBuff->getUsedSize(), port);
+                SPACEMMA_ERROR("Failed to send {} data to client {}!", currentBuff->getUsedSize(), port);
             }
             srv->bufferPool.freeBuffer(currentBuff);
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
-    SERVER_DEBUG("Stopping threadSend({})...", port);
+    SPACEMMA_DEBUG("Stopping threadSend({})...", port);
 }
 
 void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
@@ -171,7 +173,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
     AGameServer* srv = reinterpret_cast<AGameServer*>(arg->server);
     unsigned short port = arg->port;
     arg->received = true;
-    SERVER_DEBUG("Starting threadReceive({})...", port);
+    SPACEMMA_DEBUG("Starting threadReceive({})...", port);
     do
     {
         ByteBuffer* buffer = srv->tcpServer.receive(port);
@@ -181,7 +183,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
             srv->receivedPackets.push_back({ port, buffer });
         }
     } while (!thread->isInterrupted());
-    SERVER_DEBUG("Stopping threadReceive({})...", port);
+    SPACEMMA_DEBUG("Stopping threadReceive({})...", port);
 }
 
 void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server)
@@ -189,7 +191,7 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
     AGameServer* srv = reinterpret_cast<AGameServer*>(server);
     ByteBuffer* currentBuff{ nullptr };
     unsigned short clientPort{};
-    SERVER_DEBUG("Starting threadProcessPackets...");
+    SPACEMMA_DEBUG("Starting threadProcessPackets...");
     do
     {
         {
@@ -208,7 +210,7 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
-    SERVER_DEBUG("Stopped threadProcessPackets...");
+    SPACEMMA_DEBUG("Stopped threadProcessPackets...");
 }
 
 void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
@@ -241,7 +243,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
+                SPACEMMA_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
                              packet->playerId, packet->location.x, packet->location.y, packet->location.z,
                              packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
@@ -252,7 +254,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_ChangeSpeed: {}, {}, [{},{},{}]",
+                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, {}, [{},{},{}]",
                              packet->playerId, packet->speedValue,
                              packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
@@ -263,7 +265,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                              packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
             }
             break;
@@ -273,7 +275,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                              packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
             }
             break;
@@ -283,13 +285,13 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(buffer);
             if (packet)
             {
-                SERVER_DEBUG("B2B_RopeDetach: {}", packet->playerId);
+                SPACEMMA_DEBUG("B2B_RopeDetach: {}", packet->playerId);
             }
             break;
         }
         default:
         {
-            SERVER_ERROR("Received invalid packet header of {}! Discarding packet.", header);
+            SPACEMMA_ERROR("Received invalid packet header of {}! Discarding packet.", header);
             break;
         }
     }
