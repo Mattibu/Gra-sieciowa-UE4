@@ -58,8 +58,8 @@ private:
     spacemma::Thread* sendThread{}, * receiveThread{}, * connectThread{}, * processPacketsThread{};
     std::mutex connectionMutex{}, receiveMutex{}, sendMutex{};
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
-    spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
-    spacemma::WinTCPClient tcpClient{ bufferPool };
+    std::unique_ptr<spacemma::BufferPool> bufferPool{};
+    std::unique_ptr<spacemma::WinTCPClient> tcpClient{};
     std::map<unsigned short, APawn*> otherPlayers{};
     unsigned short playerId{ 0 };
 };
@@ -67,7 +67,7 @@ private:
 template <typename T>
 void AGameClient::sendPacket(T packet)
 {
-    spacemma::ByteBuffer* buff = bufferPool.getBuffer(sizeof(T));
+    spacemma::ByteBuffer* buff = bufferPool->getBuffer(sizeof(T));
     memcpy(buff->getPointer(), &packet, sizeof(T));
     send(buff);
 }

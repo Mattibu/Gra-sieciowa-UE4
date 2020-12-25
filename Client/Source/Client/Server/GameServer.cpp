@@ -32,7 +32,8 @@ bool AGameServer::startServer()
         return false;
     }
     SPACEMMA_DEBUG("Starting server...");
-    tcpServer = std::make_unique<WinTCPMultiClientServer>(bufferPool, static_cast<unsigned char>(MaxClients));
+    bufferPool = std::make_unique<BufferPool>(1024 * 1024 * 1024);
+    tcpServer = std::make_unique<WinTCPMultiClientServer>(*bufferPool, static_cast<unsigned char>(MaxClients));
     if (tcpServer->bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
     {
         acceptThread = new WinThread();
@@ -54,22 +55,28 @@ bool AGameServer::isServerRunning() const
 bool AGameServer::stopServer()
 {
     std::lock_guard lock(startStopMutex);
+    SPACEMMA_DEBUG("Stopping server...");
     if (serverActive)
     {
         serverActive = false;
+        SPACEMMA_DEBUG("Interrupting threads...");
         acceptThread->interrupt();
         processPacketsThread->interrupt();
+        SPACEMMA_DEBUG("Closing tcpServer...");
         tcpServer->close();
+        SPACEMMA_DEBUG("Joining threads...");
         acceptThread->join();
         processPacketsThread->join();
         delete acceptThread;
         delete processPacketsThread;
+        SPACEMMA_DEBUG("Closing sendThreads...");
         for (const auto& pair : sendThreads)
         {
             pair.second->interrupt();
             pair.second->join();
             delete pair.second;
         }
+        SPACEMMA_DEBUG("Closing receiveThreads...");
         for (const auto& pair : receiveThreads)
         {
             pair.second->interrupt();
@@ -78,21 +85,26 @@ bool AGameServer::stopServer()
         }
         sendThreads.clear();
         receiveThreads.clear();
+        SPACEMMA_DEBUG("Removing receivedPackets...");
         for (const auto& pair : receivedPackets)
         {
-            bufferPool.freeBuffer(pair.second);
+            bufferPool->freeBuffer(pair.second);
         }
         receivedPackets.clear();
+        SPACEMMA_DEBUG("Removing perClientSendBuffers...");
         for (const auto& pair : perClientSendBuffers)
         {
             for (ByteBuffer* buff : pair.second->buffers)
             {
-                bufferPool.freeBuffer(buff);
+                bufferPool->freeBuffer(buff);
             }
             delete pair.second;
         }
         perClientSendBuffers.clear();
+        SPACEMMA_DEBUG("Resetting tcpServer...");
         tcpServer.reset();
+        SPACEMMA_DEBUG("Resetting bufferPool...");
+        bufferPool.reset();
         return true;
     }
     return false;
@@ -174,7 +186,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
             {
                 SPACEMMA_ERROR("Failed to send {} data to client {}!", currentBuff->getUsedSize(), port);
             }
-            srv->bufferPool.freeBuffer(currentBuff);
+            srv->bufferPool->freeBuffer(currentBuff);
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
@@ -220,7 +232,7 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
         if (currentBuff)
         {
             srv->processPacket(clientPort, currentBuff);
-            srv->bufferPool.freeBuffer(currentBuff);
+            srv->bufferPool->freeBuffer(currentBuff);
             currentBuff = nullptr;
         }
     } while (!thread->isInterrupted());
@@ -233,11 +245,11 @@ void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
     for (const auto& pair : perClientSendBuffers)
     {
         //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
-        ByteBuffer* buff = bufferPool.getBuffer(buffer->getUsedSize());
+        ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
         memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
         sendTo(pair.first, buff);
     }
-    bufferPool.freeBuffer(buffer);
+    bufferPool->freeBuffer(buffer);
 }
 
 void AGameServer::sendTo(unsigned short client, gsl::not_null<ByteBuffer*> buffer)

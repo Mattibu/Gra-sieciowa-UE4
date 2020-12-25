@@ -48,7 +48,7 @@ private:
     std::atomic_bool serverActive{ false };
     std::recursive_mutex connectionMutex{};
     std::mutex receiveMutex{}, startStopMutex{};
-    spacemma::BufferPool bufferPool{ 1024 * 1024 * 1024 };
+    std::unique_ptr<spacemma::BufferPool> bufferPool;
     std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
     spacemma::Thread* acceptThread{}, * processPacketsThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
@@ -70,7 +70,7 @@ void AGameServer::sendPacketToAll(T packet)
 template<typename T>
 void AGameServer::sendPacketTo(unsigned short client, T packet)
 {
-    spacemma::ByteBuffer* buff = bufferPool.getBuffer(sizeof(T));
+    spacemma::ByteBuffer* buff = bufferPool->getBuffer(sizeof(T));
     memcpy(buff->getPointer(), &packet, sizeof(T));
     sendTo(client, buff);
 }

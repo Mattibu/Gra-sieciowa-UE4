@@ -24,10 +24,13 @@ void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
 bool AGameClient::startConnecting()
 {
     std::lock_guard lock(connectionMutex);
-    if (connectThread || tcpClient.isConnected())
+    if (connectThread || tcpClient)
     {
+        SPACEMMA_WARN("Attempted to start connecting while connecting or when client was already created!");
         return false;
     }
+    bufferPool = std::make_unique<BufferPool>(1024 * 1024 * 1024);
+    tcpClient = std::make_unique<WinTCPClient>(*bufferPool);
     connectThread = new WinThread();
     connectThread->run(threadConnect, this);
     return true;
@@ -36,12 +39,12 @@ bool AGameClient::startConnecting()
 bool AGameClient::isConnecting()
 {
     std::lock_guard lock(connectionMutex);
-    return connectThread && !tcpClient.isConnected();
+    return connectThread && !tcpClient->isConnected();
 }
 
 bool AGameClient::isConnected()
 {
-    return tcpClient.isConnected();
+    return tcpClient && tcpClient->isConnected();
 }
 
 bool AGameClient::isIdentified() const
@@ -57,27 +60,40 @@ bool AGameClient::isConnectedAndIdentified()
 bool AGameClient::closeConnection()
 {
     std::lock_guard lock(connectionMutex);
+    SPACEMMA_DEBUG("Closing connection...");
     if (connectThread)
     {
+        SPACEMMA_DEBUG("Joining connectThread...");
         connectThread->interrupt();
         connectThread->join();
         delete connectThread;
         connectThread = nullptr;
     }
-    if (tcpClient.isConnected())
+    if (tcpClient)
     {
+        SPACEMMA_DEBUG("Interrupting client threads...");
         sendThread->interrupt();
         receiveThread->interrupt();
         processPacketsThread->interrupt();
-        tcpClient.close();
+        SPACEMMA_DEBUG("Closing tcpClient...");
+        tcpClient->close();
+        SPACEMMA_DEBUG("Joining threads...");
         sendThread->join();
         receiveThread->join();
         processPacketsThread->join();
         delete sendThread;
         delete receiveThread;
         delete processPacketsThread;
+        SPACEMMA_DEBUG("Resetting tcpClient...");
+        tcpClient.reset();
+        SPACEMMA_DEBUG("Resetting bufferPool...");
+        bufferPool.reset();
+        playerId = 0;
         return true;
     }
+    SPACEMMA_DEBUG("Resetting bufferPool...");
+    bufferPool.reset();
+    playerId = 0;
     return false;
 }
 
@@ -127,7 +143,7 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
     SPACEMMA_DEBUG("Starting threadConnect...");
     do
     {
-        if (clt->tcpClient.connect(StringCast<ANSICHAR>(*clt->ServerIpAddress).Get(), clt->ServerPort))
+        if (clt->tcpClient->connect(StringCast<ANSICHAR>(*clt->ServerIpAddress).Get(), clt->ServerPort))
         {
             clt->receiveThread = new WinThread();
             clt->sendThread = new WinThread();
@@ -139,7 +155,7 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
         {
             SPACEMMA_ERROR("Failed to connect to server");
         }
-    } while (!thread->isInterrupted() && !clt->tcpClient.isConnected());
+    } while (!thread->isInterrupted() && !clt->tcpClient->isConnected());
     SPACEMMA_DEBUG("Stopping threadConnect...");
 }
 
@@ -149,7 +165,7 @@ void AGameClient::threadReceive(gsl::not_null<Thread*> thread, void* client)
     SPACEMMA_DEBUG("Starting threadReceive...");
     do
     {
-        ByteBuffer* buffer = clt->tcpClient.receive();
+        ByteBuffer* buffer = clt->tcpClient->receive();
         if (buffer)
         {
             std::lock_guard lock(clt->receiveMutex);
@@ -176,8 +192,8 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
         }
         if (toSend)
         {
-            clt->tcpClient.send(toSend);
-            clt->bufferPool.freeBuffer(toSend);
+            clt->tcpClient->send(toSend);
+            clt->bufferPool->freeBuffer(toSend);
             toSend = nullptr;
         }
     } while (!thread->isInterrupted());
@@ -202,7 +218,7 @@ void AGameClient::threadProcessPackets(gsl::not_null<Thread*> thread, void* clie
         if (packet)
         {
             clt->processPacket(packet);
-            clt->bufferPool.freeBuffer(packet);
+            clt->bufferPool->freeBuffer(packet);
             packet = nullptr;
         }
     } while (!thread->isInterrupted());
@@ -236,8 +252,8 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
-                             packet->location.x, packet->location.y, packet->location.z,
-                             packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                               packet->location.x, packet->location.y, packet->location.z,
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
             break;
         }
@@ -256,8 +272,8 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
-                             packet->playerId, packet->location.x, packet->location.y, packet->location.z,
-                             packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                               packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
             break;
         }
@@ -267,7 +283,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
-                             packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                               packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }
@@ -277,7 +293,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                             packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                               packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
             }
             break;
         }
@@ -287,9 +303,9 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
-                             packet->location.x, packet->location.y, packet->location.z,
-                             packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
-                             packet->speedValue, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                               packet->location.x, packet->location.y, packet->location.z,
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
+                               packet->speedValue, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }
@@ -299,7 +315,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
-                             packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                               packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
             }
             break;
         }
