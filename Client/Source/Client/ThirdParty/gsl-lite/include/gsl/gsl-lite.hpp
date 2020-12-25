@@ -1360,14 +1360,14 @@ typedef gsl_CONFIG_INDEX_TYPE index;
 #define gsl_HAVE_OWNER_TEMPLATE     gsl_HAVE_ALIAS_TEMPLATE
 #define gsl_HAVE_OWNER_TEMPLATE_()  gsl_HAVE_OWNER_TEMPLATE
 
-// TODO vNext: remove
-#if gsl_FEATURE( OWNER_MACRO )
-# if gsl_HAVE( OWNER_TEMPLATE )
-#  define Owner(t)  ::gsl::owner<t>
-# else
-#  define Owner(t)  ::gsl::owner<t>::type
-# endif
-#endif
+//// TODO vNext: remove
+//#if gsl_FEATURE( OWNER_MACRO )
+//# if gsl_HAVE( OWNER_TEMPLATE )
+//#  define Owner(t)  ::gsl::owner<t>
+//# else
+//#  define Owner(t)  ::gsl::owner<t>::type
+//# endif
+//#endif
 
 //
 // GSL.assert: assertions
