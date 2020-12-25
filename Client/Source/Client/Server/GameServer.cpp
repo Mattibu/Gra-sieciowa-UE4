@@ -153,9 +153,9 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                     srv->localPlayerId = port;
                     srv->players.emplace(port, srv->LocalPlayer);
                 }
+                srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
                 std::lock_guard lock2(srv->spawnAwaitingMutex);
                 srv->playersAwaitingSpawn.insert(port);
-                srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
             }
         }
     } while (!thread->isInterrupted());

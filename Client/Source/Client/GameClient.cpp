@@ -245,6 +245,9 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 {
                     SetActorLocation(packet->location.asFVector());
                     SetActorRotation(packet->rotator.asFRotator());
+                } else if (otherPlayers.find(packet->playerId) != otherPlayers.end())
+                {
+                    SPACEMMA_ERROR("Attempted to spawn player {} which is already up!", packet->playerId);
                 } else
                 {
                     FActorSpawnParameters params{};
