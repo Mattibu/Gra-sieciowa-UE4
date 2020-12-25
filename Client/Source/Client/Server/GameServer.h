@@ -16,6 +16,8 @@ public:
     AGameServer();
     virtual void Tick(float DeltaTime) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        APawn* LocalPlayer = nullptr;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 ServerPort = 4444;

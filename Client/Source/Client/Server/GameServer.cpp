@@ -127,8 +127,15 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                 while (!args.received);
                 srv->sendThreads.emplace(port, sendThread);
                 srv->receiveThreads.emplace(port, receiveThread);
+                // todo: change local player (same process) detection to something nicer.
+                if (srv->players.empty() && srv->LocalPlayer != nullptr)
+                {
+                    srv->players.emplace(port, srv->LocalPlayer);
+                } else
+                {
+                    // todo: spawn and map APawn! also, notify all players appropriately
+                }
                 srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
-                // todo: create and map APawn!
             }
         }
     } while (!thread->isInterrupted());
@@ -244,8 +251,8 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
-                             packet->playerId, packet->location.x, packet->location.y, packet->location.z,
-                             packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                               packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
             break;
         }
@@ -255,7 +262,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
-                             packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                               packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }
@@ -265,7 +272,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                             packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                               packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
             }
             break;
         }
@@ -275,7 +282,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
-                             packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                               packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
             }
             break;
         }
