@@ -27,8 +27,9 @@ namespace spacemma
         bool shutdownClient() const;
         bool closeServer();
         bool closeClient();
-        SOCKET serverSocket{INVALID_SOCKET}, clientSocket{INVALID_SOCKET};
+        SOCKET serverSocket{ INVALID_SOCKET }, clientSocket{ INVALID_SOCKET };
         sockaddr_in address{};
-        char recvBuffer[TCP_SOCKET_BUFFER_SIZE]{0};
+        char recvBuffer[TCP_SOCKET_BUFFER_SIZE]{ 0 };
+        bool connected{ false };
     };
 }

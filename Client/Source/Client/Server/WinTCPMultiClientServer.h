@@ -10,6 +10,7 @@ namespace spacemma
         SOCKET socket{ INVALID_SOCKET };
         unsigned short port{ 0U };
         char recvBuffer[TCP_SOCKET_BUFFER_SIZE]{};
+        bool isConnected{};
     };
 
     struct ClientBuffers
@@ -46,6 +47,7 @@ namespace spacemma
         bool isConnected() override;
         bool shutdownClient(unsigned short port) const;
         bool closeClient(unsigned short port) const;
+        bool isConnected(unsigned short port) const;
     private:
         bool shutdownServer() const;
         bool closeServer();

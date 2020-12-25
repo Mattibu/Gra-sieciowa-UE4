@@ -34,14 +34,13 @@ bool spacemma::WinTCPServer::bindAndListen(gsl::cstring_span ipAddress, unsigned
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    address = {AF_INET, htons(port), 0, {0}};
+    address = { AF_INET, htons(port), 0, {0} };
     if (int ret = InetPtonA(address.sin_family, ipAddress.cbegin(), &address.sin_addr); ret != 1)
     {
         if (ret == 0)
         {
             SPACEMMA_ERROR("An invalid IP address was provided!");
-        }
-        else
+        } else
         {
             SPACEMMA_ERROR("Failed to convert the IP address ({})!", WSAGetLastError());
         }
@@ -66,14 +65,13 @@ bool spacemma::WinTCPServer::bindAndListen(gsl::cstring_span ipAddress, unsigned
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    char buff[64]{0};
+    char buff[64]{ 0 };
     PCSTR str = InetNtopA(AF_INET, &address.sin_addr, buff, 64);
     if (str == nullptr)
     {
         SPACEMMA_WARN("Unable to convert the address to string ({})!", WSAGetLastError());
         SPACEMMA_DEBUG("Socket bound to and listening!");
-    }
-    else
+    } else
     {
         SPACEMMA_DEBUG("Socket bound to {}:{} and listening!", str, address.sin_port);
     }
@@ -94,26 +92,25 @@ unsigned short spacemma::WinTCPServer::acceptClient()
         return 0;
     }
     sockaddr_in addr;
-    int addrSize{sizeof(addr)};
+    int addrSize{ sizeof(addr) };
     if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&addr), &addrSize) == SOCKET_ERROR)
     {
         SPACEMMA_WARN("Accepted connection, but getpeername failed ({})!", WSAGetLastError());
-    }
-    else
+    } else
     {
-        char buff[64]{0};
+        char buff[64]{ 0 };
         PCSTR str = InetNtopA(AF_INET, &address.sin_addr, buff, 64);
         if (str == nullptr)
         {
             SPACEMMA_WARN("Unable to convert the address to string ({})!", WSAGetLastError());
             SPACEMMA_DEBUG("Accepted connection!");
-        }
-        else
+        } else
         {
             SPACEMMA_DEBUG("Accepted connection from {}:{}!", str, addr.sin_port);
         }
     }
     closeServer();
+    connected = true;
     return addr.sin_port;
 }
 
@@ -122,7 +119,14 @@ bool spacemma::WinTCPServer::send(gsl::not_null<ByteBuffer*> buff)
     if (::send(clientSocket, reinterpret_cast<char*>(buff->getPointer()), static_cast<int>(buff->getUsedSize()),
                0) == SOCKET_ERROR)
     {
-        SPACEMMA_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), WSAGetLastError());
+        if (int error = WSAGetLastError(); error == WSAECONNRESET)
+        {
+            SPACEMMA_ERROR("Failed to send {} data! Connection reset by peer.", buff->getUsedSize());
+            connected = false;
+        } else
+        {
+            SPACEMMA_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), error);
+        }
         return false;
     }
     return true;
@@ -137,7 +141,14 @@ spacemma::ByteBuffer* spacemma::WinTCPServer::receive()
     }
     if (received == SOCKET_ERROR)
     {
-        SPACEMMA_ERROR("Failed to receive data ({})!", WSAGetLastError());
+        if (int error = WSAGetLastError(); error == WSAECONNRESET)
+        {
+            SPACEMMA_ERROR("Failed to receive data! Connection reset by peer.");
+            connected = false;
+        } else
+        {
+            SPACEMMA_ERROR("Failed to receive data ({})!", error);
+        }
         return nullptr;
     }
     ByteBuffer* buff = bufferPool->getBuffer(received);
@@ -157,7 +168,7 @@ bool spacemma::WinTCPServer::close()
 
 bool spacemma::WinTCPServer::isConnected()
 {
-    return clientSocket != INVALID_SOCKET;
+    return clientSocket != INVALID_SOCKET && connected;
 }
 
 bool spacemma::WinTCPServer::shutdownServer() const

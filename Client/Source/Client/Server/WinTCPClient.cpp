@@ -34,14 +34,13 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
         WinsockUtil::wsaCleanup(this);
         return false;
     }
-    address = {AF_INET, htons(port), 0, {0}};
+    address = { AF_INET, htons(port), 0, {0} };
     if (int ret = InetPtonA(address.sin_family, ipAddress.cbegin(), &address.sin_addr); ret != 1)
     {
         if (ret == 0)
         {
             SPACEMMA_ERROR("An invalid IP address was provided!");
-        }
-        else
+        } else
         {
             SPACEMMA_ERROR("Failed to convert the IP address ({})!", WSAGetLastError());
         }
@@ -58,6 +57,7 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
         WinsockUtil::wsaCleanup(this);
         return false;
     }
+    connected = true;
     SPACEMMA_DEBUG("Connection established!");
     return true;
 }
@@ -67,7 +67,14 @@ bool spacemma::WinTCPClient::send(gsl::not_null<ByteBuffer*> buff)
     if (::send(socket, reinterpret_cast<char*>(buff->getPointer()), static_cast<int>(buff->getUsedSize()), 0) ==
         SOCKET_ERROR)
     {
-        SPACEMMA_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), WSAGetLastError());
+        if (int error = WSAGetLastError(); error == WSAECONNRESET)
+        {
+            SPACEMMA_ERROR("Failed to send {} data! Connection reset by peer.", buff->getUsedSize());
+            connected = false;
+        } else
+        {
+            SPACEMMA_ERROR("Failed to send {} data ({})!", buff->getUsedSize(), error);
+        }
         return false;
     }
     return true;
@@ -82,7 +89,14 @@ spacemma::ByteBuffer* spacemma::WinTCPClient::receive()
     }
     if (received == SOCKET_ERROR)
     {
-        SPACEMMA_ERROR("Failed to receive data ({})!", WSAGetLastError());
+        if (int error = WSAGetLastError(); error == WSAECONNRESET)
+        {
+            SPACEMMA_ERROR("Failed to receive data! Connection reset by peer.");
+            connected = false;
+        } else
+        {
+            SPACEMMA_ERROR("Failed to receive data ({})!", error);
+        }
         return nullptr;
     }
     ByteBuffer* buff = bufferPool->getBuffer(received);
@@ -119,5 +133,5 @@ bool spacemma::WinTCPClient::close()
 
 bool spacemma::WinTCPClient::isConnected()
 {
-    return socket != INVALID_SOCKET;
+    return socket != INVALID_SOCKET && connected;
 }
