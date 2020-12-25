@@ -24,6 +24,8 @@ public:
         int32 ServerPort = 4444;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MaxClients = 8;
+    UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
+        TSubclassOf<AActor> PlayerBP;
     UFUNCTION(BlueprintCallable, Category = Server_Management)
         bool startServer();
     UFUNCTION(BlueprintCallable, Category = Server_Management)
@@ -38,7 +40,6 @@ private:
     static void threadAcceptClients(gsl::not_null<spacemma::Thread*> thread, void* server);
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* args);
-    static void threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server);
     template<typename T>
     void sendPacketToAll(T packet);
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
@@ -47,19 +48,24 @@ private:
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void disconnectClient(unsigned short client);
     void processPacket(unsigned short sourceClient, gsl::not_null<spacemma::ByteBuffer*> buffer);
+    void handlePlayerAwaitingSpawn();
+    void handlePendingDisconnect();
+    void processPendingPacket();
     bool isClientAvailable(unsigned short client);
     std::recursive_mutex connectionMutex{};
-    std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{};
+    std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{}, spawnAwaitingMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
     std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
-    spacemma::Thread* acceptThread{}, * processPacketsThread{};
+    spacemma::Thread* acceptThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
-    std::map<unsigned short, APawn*> players{};
+    std::map<unsigned short, AActor*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
     std::set<unsigned short> disconnectingPlayers{};
     std::set<unsigned short> liveClients{};
+    std::set<unsigned short> playersAwaitingSpawn{};
+    unsigned short localPlayerId{};
 };
 
 template<typename T>

@@ -3,6 +3,7 @@
 #include "Client/Server/WinThread.h"
 #include "Client/Shared/Packets.h"
 #include "GameFramework/Pawn.h"
+#include "Engine/World.h"
 
 using namespace spacemma;
 
@@ -38,9 +39,7 @@ bool AGameServer::startServer()
     if (tcpServer->bindAndListen(StringCast<ANSICHAR>(*ServerIpAddress).Get(), ServerPort))
     {
         acceptThread = new WinThread();
-        processPacketsThread = new WinThread();
         acceptThread->run(threadAcceptClients, this);
-        processPacketsThread->run(threadProcessPackets, this);
         return true;
     }
     SPACEMMA_ERROR("Game server initialization failed!");
@@ -62,14 +61,11 @@ bool AGameServer::stopServer()
     {
         SPACEMMA_DEBUG("Interrupting threads...");
         acceptThread->interrupt();
-        processPacketsThread->interrupt();
         SPACEMMA_DEBUG("Closing tcpServer...");
         tcpServer->close();
         SPACEMMA_DEBUG("Joining threads...");
         acceptThread->join();
-        processPacketsThread->join();
         delete acceptThread;
-        delete processPacketsThread;
         SPACEMMA_DEBUG("Closing sendThreads...");
         for (const auto& pair : sendThreads)
         {
@@ -154,10 +150,12 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                 // todo: change local player (same process) detection to something nicer.
                 if (srv->players.empty() && srv->LocalPlayer != nullptr)
                 {
+                    srv->localPlayerId = port;
                     srv->players.emplace(port, srv->LocalPlayer);
                 } else
                 {
-                    // todo: spawn and map APawn! also, notify all players appropriately
+                    std::lock_guard lock2(srv->spawnAwaitingMutex);
+                    srv->playersAwaitingSpawn.insert(port);
                 }
                 srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
             }
@@ -230,33 +228,6 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
     SPACEMMA_DEBUG("Stopping threadReceive({})...", port);
 }
 
-void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server)
-{
-    AGameServer* srv = reinterpret_cast<AGameServer*>(server);
-    ByteBuffer* currentBuff{ nullptr };
-    unsigned short clientPort{};
-    SPACEMMA_DEBUG("Starting threadProcessPackets...");
-    do
-    {
-        {
-            std::lock_guard lock(srv->receiveMutex);
-            if (!srv->receivedPackets.empty())
-            {
-                clientPort = srv->receivedPackets[0].first;
-                currentBuff = srv->receivedPackets[0].second;
-                srv->receivedPackets.erase(srv->receivedPackets.begin());
-            }
-        }
-        if (currentBuff)
-        {
-            srv->processPacket(clientPort, currentBuff);
-            srv->bufferPool->freeBuffer(currentBuff);
-            currentBuff = nullptr;
-        }
-    } while (!thread->isInterrupted());
-    SPACEMMA_DEBUG("Stopped threadProcessPackets...");
-}
-
 void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
 {
     std::lock_guard lock(connectionMutex);
@@ -322,10 +293,10 @@ void AGameServer::disconnectClient(unsigned short client)
         }
     }
     {
-        const std::map<unsigned short, APawn*>::iterator pair = players.find(client);
+        const std::map<unsigned short, AActor*>::iterator pair = players.find(client);
         if (pair != players.end())
         {
-            SPACEMMA_DEBUG("Removing player's pawn...");
+            SPACEMMA_DEBUG("Removing player's actor...");
             pair->second->Destroy();
             players.erase(pair);
             sendPacketToAll(S2C_DestroyPlayer{ S2C_HDestroyPlayer, {}, client });
@@ -400,15 +371,29 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
     }
 }
 
-bool AGameServer::isClientAvailable(unsigned short client)
+void AGameServer::handlePlayerAwaitingSpawn()
 {
-    std::lock_guard lock(liveClientsMutex);
-    return liveClients.find(client) != liveClients.end();
+    unsigned short clientPort = 0;
+    {
+        std::lock_guard lock(spawnAwaitingMutex);
+        if (!playersAwaitingSpawn.empty())
+        {
+            clientPort = *playersAwaitingSpawn.begin();
+            playersAwaitingSpawn.erase(playersAwaitingSpawn.begin());
+        }
+    }
+    if (clientPort)
+    {
+        SPACEMMA_DEBUG("Spawning player {}...");
+        AActor* actor = GetWorld()->SpawnActor<AActor>(PlayerBP, FVector{}, FRotator{}, FActorSpawnParameters{});
+        players.emplace(clientPort, actor);
+        sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
+                        actor->GetActorLocation(), actor->GetActorRotation() });
+    }
 }
 
-void AGameServer::Tick(float DeltaTime)
+void AGameServer::handlePendingDisconnect()
 {
-    Super::Tick(DeltaTime);
     unsigned short clientPortToDisconnect = 0;
     {
         std::lock_guard lock(disconnectMutex);
@@ -422,5 +407,39 @@ void AGameServer::Tick(float DeltaTime)
     {
         disconnectClient(clientPortToDisconnect);
     }
+}
+
+void AGameServer::processPendingPacket()
+{
+    ByteBuffer* buff = nullptr;
+    unsigned char clientPort = 0;
+    {
+        std::lock_guard lock(receiveMutex);
+        if (!receivedPackets.empty())
+        {
+            clientPort = receivedPackets[0].first;
+            buff = receivedPackets[0].second;
+            receivedPackets.erase(receivedPackets.begin());
+        }
+    }
+    if (buff)
+    {
+        processPacket(clientPort, buff);
+        bufferPool->freeBuffer(buff);
+    }
+}
+
+bool AGameServer::isClientAvailable(unsigned short client)
+{
+    std::lock_guard lock(liveClientsMutex);
+    return liveClients.find(client) != liveClients.end();
+}
+
+void AGameServer::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+    handlePlayerAwaitingSpawn();
+    processPendingPacket();
+    handlePendingDisconnect();
 }
 

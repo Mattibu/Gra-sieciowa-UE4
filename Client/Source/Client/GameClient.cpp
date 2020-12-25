@@ -1,6 +1,7 @@
 #include "GameClient.h"
 #include "Client/Server/WinThread.h"
 #include "Client/Shared/Packets.h"
+#include "Engine/World.h"
 
 using namespace spacemma;
 
@@ -77,7 +78,6 @@ bool AGameClient::closeConnection()
         {
             sendThread->interrupt();
             receiveThread->interrupt();
-            processPacketsThread->interrupt();
         }
         SPACEMMA_DEBUG("Closing tcpClient...");
         tcpClient->close();
@@ -86,10 +86,8 @@ bool AGameClient::closeConnection()
         {
             sendThread->join();
             receiveThread->join();
-            processPacketsThread->join();
             delete sendThread;
             delete receiveThread;
-            delete processPacketsThread;
         }
         SPACEMMA_DEBUG("Resetting tcpClient...");
         tcpClient.reset();
@@ -154,10 +152,8 @@ void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
         {
             clt->receiveThread = new WinThread();
             clt->sendThread = new WinThread();
-            clt->processPacketsThread = new WinThread();
             clt->receiveThread->run(threadReceive, clt);
             clt->sendThread->run(threadSend, clt);
-            clt->processPacketsThread->run(threadProcessPackets, clt);
         } else
         {
             SPACEMMA_ERROR("Failed to connect to server");
@@ -216,31 +212,6 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
     SPACEMMA_DEBUG("Stopping threadSend...");
 }
 
-void AGameClient::threadProcessPackets(gsl::not_null<Thread*> thread, void* client)
-{
-    AGameClient* clt = reinterpret_cast<AGameClient*>(client);
-    ByteBuffer* packet{ nullptr };
-    SPACEMMA_DEBUG("Starting threadProcessPackets...");
-    do
-    {
-        {
-            std::lock_guard lock(clt->receiveMutex);
-            if (!clt->receivedPackets.empty())
-            {
-                packet = clt->receivedPackets[0];
-                clt->receivedPackets.erase(clt->receivedPackets.begin());
-            }
-        }
-        if (packet)
-        {
-            clt->processPacket(packet);
-            clt->bufferPool->freeBuffer(packet);
-            packet = nullptr;
-        }
-    } while (!thread->isInterrupted() && clt->isConnected());
-    SPACEMMA_DEBUG("Stopping threadProcessPackets...");
-}
-
 void AGameClient::send(gsl::not_null<ByteBuffer*> packet)
 {
     std::lock_guard lock(sendMutex);
@@ -270,6 +241,8 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                AActor* actor = GetWorld()->SpawnActor<AActor>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), FActorSpawnParameters{});
+                otherPlayers.emplace(packet->playerId, actor);
             }
             break;
         }
@@ -279,6 +252,12 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("S2C_DestroyPlayer: {}", packet->playerId);
+                const std::map<unsigned short, AActor*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->Destroy();
+                    otherPlayers.erase(pair);
+                }
             }
             break;
         }
@@ -361,8 +340,27 @@ void AGameClient::processPacket(ByteBuffer* buffer)
     }
 }
 
+void AGameClient::processPendingPacket()
+{
+    ByteBuffer* packet = nullptr;
+    {
+        std::lock_guard lock(receiveMutex);
+        if (!receivedPackets.empty())
+        {
+            packet = receivedPackets[0];
+            receivedPackets.erase(receivedPackets.begin());
+        }
+    }
+    if (packet)
+    {
+        processPacket(packet);
+        bufferPool->freeBuffer(packet);
+    }
+}
+
 void AGameClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    processPendingPacket();
 }
 

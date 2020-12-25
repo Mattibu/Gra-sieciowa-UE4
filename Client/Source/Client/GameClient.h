@@ -24,6 +24,8 @@ protected:
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         int32 ServerPort = 4444;
+    UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
+        TSubclassOf<AActor> PlayerBP;
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool startConnecting();
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
@@ -50,17 +52,17 @@ private:
     static void threadConnect(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* client);
-    static void threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* client);
     template<typename T>
     void sendPacket(T packet);
     void send(gsl::not_null<spacemma::ByteBuffer*> packet);
     void processPacket(spacemma::ByteBuffer* buffer);
-    spacemma::Thread* sendThread{}, * receiveThread{}, * connectThread{}, * processPacketsThread{};
+    void processPendingPacket();
+    spacemma::Thread* sendThread{}, * receiveThread{}, * connectThread{};
     std::mutex connectionMutex{}, receiveMutex{}, sendMutex{};
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     std::unique_ptr<spacemma::BufferPool> bufferPool{};
     std::unique_ptr<spacemma::WinTCPClient> tcpClient{};
-    std::map<unsigned short, APawn*> otherPlayers{};
+    std::map<unsigned short, AActor*> otherPlayers{};
     unsigned short playerId{ 0 };
 };
 
