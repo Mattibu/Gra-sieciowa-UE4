@@ -248,6 +248,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 } else
                 {
                     FActorSpawnParameters params{};
+                    params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(packet->playerId)));
                     params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
                     AShooterPlayer* actor =
                         GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), params);

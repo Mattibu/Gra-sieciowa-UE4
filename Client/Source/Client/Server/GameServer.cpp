@@ -409,6 +409,7 @@ void AGameServer::handlePlayerAwaitingSpawn()
         } else
         {
             FActorSpawnParameters params{};
+            params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(clientPort)));
             params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
             actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f }, FRotator{}, params);
         }
