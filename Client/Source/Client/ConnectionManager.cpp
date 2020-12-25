@@ -8,18 +8,18 @@ AConnectionManager::AConnectionManager()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	//std::string a = std::string(*IpAddress);
-	IpAddress = "127.0.0.1";
-	Port = 4444;
-	//createServer(IpAddress, Port);
-	//FPlatformProcess::Sleep(10);
-	connectToServer(IpAddress, Port);
 }
 
 // Called when the game starts or when spawned
 void AConnectionManager::BeginPlay()
 {
 	Super::BeginPlay();
+	//std::string a = std::string(*IpAddress);
+	IpAddress = "127.0.0.1";
+	Port = 4444;
+	//createServer(IpAddress, Port);
+	//FPlatformProcess::Sleep(10);
+	connectToServer(IpAddress, Port);
 }
 
 // Called every frame

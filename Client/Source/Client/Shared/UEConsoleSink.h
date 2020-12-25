@@ -1,6 +1,7 @@
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Logging/LogMacros.h"
+#include "Windows/MinWindows.h"
 
 #include <spdlog/sinks/base_sink.h>
 
@@ -13,27 +14,28 @@ namespace spacemma
         void sink_it_(const spdlog::details::log_msg& msg) override
         {
             spdlog::memory_buf_t formatted;
-            spdlog::base_sink<Mutex>::formatter_->format(msg, formatted);
+            spdlog::sinks::base_sink<Mutex>::formatter_->format(msg, formatted);
             std::string message = fmt::to_string(formatted);
+            FString ueMsg{ message.c_str() };
             switch (msg.level)
             {
                 case spdlog::level::trace:
-                    UE_LOG(SpaceMMA, Verbose, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Verbose, TEXT("%s"), *ueMsg);
                     break;
                 case spdlog::level::debug:
-                    UE_LOG(SpaceMMA, Log, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Log, TEXT("%s"), *ueMsg);
                     break;
                 case spdlog::level::info:
-                    UE_LOG(SpaceMMA, Display, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Display, TEXT("%s"), *ueMsg);
                     break;
                 case spdlog::level::warn:
-                    UE_LOG(SpaceMMA, Warning, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Warning, TEXT("%s"), *ueMsg);
                     break;
                 case spdlog::level::err:
-                    UE_LOG(SpaceMMA, Error, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Error, TEXT("%s"), *ueMsg);
                     break;
                 case spdlog::level::critical:
-                    UE_LOG(SpaceMMA, Fatal, TEXT(message.c_str()));
+                    UE_LOG(LogTemp, Fatal, TEXT("%s"), *ueMsg);
                     break;
                 default:
                     break;
