@@ -238,7 +238,21 @@ void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
         memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
         sendTo(pair.first, buff);
     }
-    bufferPool->freeBuffer(buffer);
+}
+
+void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short ignoredClient)
+{
+    std::lock_guard lock(connectionMutex);
+    for (const auto& pair : perClientSendBuffers)
+    {
+        if (pair.first != ignoredClient)
+        {
+            //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
+            ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
+            memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
+            sendTo(pair.first, buff);
+        }
+    }
 }
 
 void AGameServer::sendTo(unsigned short client, gsl::not_null<ByteBuffer*> buffer)
@@ -319,7 +333,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
+                SPACEMMA_TRACE("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
                                packet->playerId, packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
@@ -330,8 +344,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
+                SPACEMMA_TRACE("B2B_ChangeSpeed: {}, [{},{},{}]",
                                packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -340,8 +355,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -350,8 +366,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -360,7 +377,8 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_RopeDetach: {}", packet->playerId);
+                SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -385,11 +403,17 @@ void AGameServer::handlePlayerAwaitingSpawn()
     }
     if (clientPort)
     {
-        SPACEMMA_DEBUG("Spawning player {}...");
+        SPACEMMA_DEBUG("Spawning player {}...", clientPort);
         AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{}, FRotator{}, FActorSpawnParameters{});
-        players.emplace(clientPort, actor);
-        sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
-                        actor->GetActorLocation(), actor->GetActorRotation() });
+        if (actor == nullptr)
+        {
+            SPACEMMA_ERROR("Failed to spawn player {}!", clientPort);
+        } else
+        {
+            players.emplace(clientPort, actor);
+            sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
+                            actor->GetActorLocation(), actor->GetActorRotation() });
+        }
     }
 }
 

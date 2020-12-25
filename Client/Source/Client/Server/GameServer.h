@@ -45,6 +45,9 @@ private:
     void sendPacketToAll(T packet);
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
     template<typename T>
+    void sendPacketToAllBut(T packet, unsigned short ignoredClient);
+    void sendToAllBut(gsl::not_null<spacemma::ByteBuffer*> buffer, unsigned short ignoredClient);
+    template<typename T>
     void sendPacketTo(unsigned short client, T packet);
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void disconnectClient(unsigned short client);
@@ -72,9 +75,21 @@ private:
 template<typename T>
 void AGameServer::sendPacketToAll(T packet)
 {
-    for (const auto& pair : perClientSendBuffers)
+    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
     {
         sendPacketTo(pair.first, packet);
+    }
+}
+
+template<typename T>
+inline void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient)
+{
+    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
+    {
+        if(pair.first != ignoredClient)
+        {
+            sendPacketTo(pair.first, packet);
+        }
     }
 }
 

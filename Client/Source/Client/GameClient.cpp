@@ -266,7 +266,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
+                SPACEMMA_TRACE("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
                                packet->playerId, packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
             }
@@ -277,7 +277,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
+                SPACEMMA_TRACE("B2B_ChangeSpeed: {}, [{},{},{}]",
                                packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
@@ -292,7 +292,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
@@ -307,7 +307,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             S2C_PlayerMovement* packet = reinterpretPacket<S2C_PlayerMovement>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
                                packet->speedValue, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
@@ -319,7 +319,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
@@ -334,7 +334,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             S2C_RopeFailed* packet = reinterpretPacket<S2C_RopeFailed>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("S2C_RopeFailed: {}, {}", packet->playerId, packet->ropeCooldown);
+                SPACEMMA_TRACE("S2C_RopeFailed: {}, {}", packet->playerId, packet->ropeCooldown);
             }
             break;
         }
@@ -343,7 +343,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_RopeDetach: {}", packet->playerId);
+                SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
                 {
