@@ -39,10 +39,8 @@ bool AGameServer::startServer()
     {
         acceptThread = new WinThread();
         processPacketsThread = new WinThread();
-        handleDisconnectsThread = new WinThread();
         acceptThread->run(threadAcceptClients, this);
         processPacketsThread->run(threadProcessPackets, this);
-        handleDisconnectsThread->run(threadHandleDisconnects, this);
         return true;
     }
     SPACEMMA_ERROR("Game server initialization failed!");
@@ -63,13 +61,11 @@ bool AGameServer::stopServer()
     if (tcpServer)
     {
         SPACEMMA_DEBUG("Interrupting threads...");
-        handleDisconnectsThread->interrupt();
         acceptThread->interrupt();
         processPacketsThread->interrupt();
         SPACEMMA_DEBUG("Closing tcpServer...");
         tcpServer->close();
         SPACEMMA_DEBUG("Joining threads...");
-        handleDisconnectsThread->join();
         acceptThread->join();
         processPacketsThread->join();
         delete acceptThread;
@@ -122,8 +118,8 @@ void AGameServer::BeginPlay()
 
 void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    Super::EndPlay(EndPlayReason);
     stopServer();
+    Super::EndPlay(EndPlayReason);
 }
 
 void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* server)
@@ -259,30 +255,6 @@ void AGameServer::threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, 
         }
     } while (!thread->isInterrupted());
     SPACEMMA_DEBUG("Stopped threadProcessPackets...");
-}
-
-void AGameServer::threadHandleDisconnects(gsl::not_null<Thread*> thread, void* server)
-{
-    AGameServer* srv = reinterpret_cast<AGameServer*>(server);
-    SPACEMMA_DEBUG("Starting threadHandleDisconnects...");
-    unsigned short clientPort = 0;
-    do
-    {
-        {
-            std::lock_guard lock(srv->disconnectMutex);
-            if (!srv->disconnectingPlayers.empty())
-            {
-                clientPort = *srv->disconnectingPlayers.begin();
-                srv->disconnectingPlayers.erase(srv->disconnectingPlayers.begin());
-            }
-        }
-        if (clientPort)
-        {
-            srv->disconnectClient(clientPort);
-            clientPort = 0;
-        }
-    } while (!thread->isInterrupted());
-    SPACEMMA_DEBUG("Stopped threadHandleDisconnects...");
 }
 
 void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
@@ -437,6 +409,18 @@ bool AGameServer::isClientAvailable(unsigned short client)
 void AGameServer::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
+    unsigned short clientPortToDisconnect = 0;
+    {
+        std::lock_guard lock(disconnectMutex);
+        if (!disconnectingPlayers.empty())
+        {
+            clientPortToDisconnect = *disconnectingPlayers.begin();
+            disconnectingPlayers.erase(disconnectingPlayers.begin());
+        }
+    }
+    if (clientPortToDisconnect)
+    {
+        disconnectClient(clientPortToDisconnect);
+    }
 }
 

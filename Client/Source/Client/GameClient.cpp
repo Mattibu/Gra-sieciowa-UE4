@@ -17,8 +17,8 @@ void AGameClient::BeginPlay()
 
 void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    Super::EndPlay(EndPlayReason);
     closeConnection();
+    Super::EndPlay(EndPlayReason);
 }
 
 bool AGameClient::startConnecting()

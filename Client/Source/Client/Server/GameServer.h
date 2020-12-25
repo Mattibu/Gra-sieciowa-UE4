@@ -39,7 +39,6 @@ private:
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server);
-    static void threadHandleDisconnects(gsl::not_null<spacemma::Thread*> thread, void* server);
     template<typename T>
     void sendPacketToAll(T packet);
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
@@ -53,7 +52,7 @@ private:
     std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
     std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
-    spacemma::Thread* acceptThread{}, * processPacketsThread{}, * handleDisconnectsThread{};
+    spacemma::Thread* acceptThread{}, * processPacketsThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
