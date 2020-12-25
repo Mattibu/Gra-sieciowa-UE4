@@ -72,18 +72,25 @@ bool AGameClient::closeConnection()
     if (tcpClient)
     {
         SPACEMMA_DEBUG("Interrupting client threads...");
-        sendThread->interrupt();
-        receiveThread->interrupt();
-        processPacketsThread->interrupt();
+        bool conn = tcpClient->isConnected();
+        if (conn)
+        {
+            sendThread->interrupt();
+            receiveThread->interrupt();
+            processPacketsThread->interrupt();
+        }
         SPACEMMA_DEBUG("Closing tcpClient...");
         tcpClient->close();
         SPACEMMA_DEBUG("Joining threads...");
-        sendThread->join();
-        receiveThread->join();
-        processPacketsThread->join();
-        delete sendThread;
-        delete receiveThread;
-        delete processPacketsThread;
+        if (conn)
+        {
+            sendThread->join();
+            receiveThread->join();
+            processPacketsThread->join();
+            delete sendThread;
+            delete receiveThread;
+            delete processPacketsThread;
+        }
         SPACEMMA_DEBUG("Resetting tcpClient...");
         tcpClient.reset();
         SPACEMMA_DEBUG("Resetting bufferPool...");
