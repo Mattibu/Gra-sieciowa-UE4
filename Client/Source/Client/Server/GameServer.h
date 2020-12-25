@@ -5,6 +5,7 @@
 #include "Client/Server/WinTCPMultiClientServer.h"
 #include "Client/Server/Thread.h"
 #include <map>
+#include <set>
 #include "GameServer.generated.h"
 
 UCLASS()
@@ -38,24 +39,28 @@ private:
     static void threadSend(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* args);
     static void threadProcessPackets(gsl::not_null<spacemma::Thread*> thread, void* server);
+    static void threadHandleDisconnects(gsl::not_null<spacemma::Thread*> thread, void* server);
     template<typename T>
     void sendPacketToAll(T packet);
     void sendToAll(gsl::not_null<spacemma::ByteBuffer*> buffer);
     template<typename T>
     void sendPacketTo(unsigned short client, T packet);
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
+    void disconnectClient(unsigned short client);
     void processPacket(unsigned short sourceClient, gsl::not_null<spacemma::ByteBuffer*> buffer);
-    std::atomic_bool serverActive{ false };
+    bool isClientAvailable(unsigned short client) const;
     std::recursive_mutex connectionMutex{};
-    std::mutex receiveMutex{}, startStopMutex{};
+    std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
     std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
-    spacemma::Thread* acceptThread{}, * processPacketsThread{};
+    spacemma::Thread* acceptThread{}, * processPacketsThread{}, * handleDisconnectsThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
     std::map<unsigned short, APawn*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
+    std::set<unsigned short> disconnectingPlayers{};
+    std::set<unsigned short> liveClients{};
 };
 
 template<typename T>

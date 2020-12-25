@@ -170,6 +170,10 @@ void AGameClient::threadReceive(gsl::not_null<Thread*> thread, void* client)
         {
             std::lock_guard lock(clt->receiveMutex);
             clt->receivedPackets.push_back(buffer);
+        } else if (!clt->tcpClient->isConnected())
+        {
+            SPACEMMA_ERROR("Connection lost.");
+            break;
         }
     } while (!thread->isInterrupted());
     SPACEMMA_DEBUG("Stopping threadReceive...");
@@ -192,8 +196,13 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
         }
         if (toSend)
         {
-            clt->tcpClient->send(toSend);
+            bool sent = clt->tcpClient->send(toSend);
             clt->bufferPool->freeBuffer(toSend);
+            if (!sent && !clt->tcpClient->isConnected())
+            {
+                SPACEMMA_ERROR("Connection lost.");
+                break;
+            }
             toSend = nullptr;
         }
     } while (!thread->isInterrupted());
@@ -221,7 +230,7 @@ void AGameClient::threadProcessPackets(gsl::not_null<Thread*> thread, void* clie
             clt->bufferPool->freeBuffer(packet);
             packet = nullptr;
         }
-    } while (!thread->isInterrupted());
+    } while (!thread->isInterrupted() && clt->isConnected());
     SPACEMMA_DEBUG("Stopping threadProcessPackets...");
 }
 
@@ -348,6 +357,5 @@ void AGameClient::processPacket(ByteBuffer* buffer)
 void AGameClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
 }
 
