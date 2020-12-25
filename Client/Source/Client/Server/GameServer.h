@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Client/Server/WinTCPMultiClientServer.h"
 #include "Client/Server/Thread.h"
+#include "Client/ShooterPlayer.h"
 #include <map>
 #include <set>
 #include "GameServer.generated.h"
@@ -17,7 +18,7 @@ public:
     AGameServer();
     virtual void Tick(float DeltaTime) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
-        APawn* LocalPlayer = nullptr;
+        AShooterPlayer* LocalPlayer = nullptr;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
@@ -60,7 +61,7 @@ private:
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
-    std::map<unsigned short, AActor*> players{};
+    std::map<unsigned short, AShooterPlayer*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
     std::set<unsigned short> disconnectingPlayers{};
     std::set<unsigned short> liveClients{};

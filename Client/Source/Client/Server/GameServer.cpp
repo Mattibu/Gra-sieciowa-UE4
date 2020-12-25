@@ -293,7 +293,7 @@ void AGameServer::disconnectClient(unsigned short client)
         }
     }
     {
-        const std::map<unsigned short, AActor*>::iterator pair = players.find(client);
+        const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(client);
         if (pair != players.end())
         {
             SPACEMMA_DEBUG("Removing player's actor...");
@@ -385,7 +385,7 @@ void AGameServer::handlePlayerAwaitingSpawn()
     if (clientPort)
     {
         SPACEMMA_DEBUG("Spawning player {}...");
-        AActor* actor = GetWorld()->SpawnActor<AActor>(PlayerBP, FVector{}, FRotator{}, FActorSpawnParameters{});
+        AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{}, FRotator{}, FActorSpawnParameters{});
         players.emplace(clientPort, actor);
         sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
                         actor->GetActorLocation(), actor->GetActorRotation() });

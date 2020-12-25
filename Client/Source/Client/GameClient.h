@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Client/Server/WinTCPClient.h"
 #include "Client/Server/Thread.h"
+#include "Client/ShooterPlayer.h"
 #include <map>
 #include "GameClient.generated.h"
 
@@ -19,7 +20,7 @@ protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Data)
-        APawn* ClientPawn;
+        AShooterPlayer* ClientPawn;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
@@ -62,7 +63,7 @@ private:
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     std::unique_ptr<spacemma::BufferPool> bufferPool{};
     std::unique_ptr<spacemma::WinTCPClient> tcpClient{};
-    std::map<unsigned short, AActor*> otherPlayers{};
+    std::map<unsigned short, AShooterPlayer*> otherPlayers{};
     unsigned short playerId{ 0 };
 };
 

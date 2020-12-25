@@ -241,7 +241,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                AActor* actor = GetWorld()->SpawnActor<AActor>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), FActorSpawnParameters{});
+                AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), FActorSpawnParameters{});
                 otherPlayers.emplace(packet->playerId, actor);
             }
             break;
@@ -252,7 +252,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("S2C_DestroyPlayer: {}", packet->playerId);
-                const std::map<unsigned short, AActor*>::iterator pair = otherPlayers.find(packet->playerId);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
                 {
                     pair->second->Destroy();
@@ -279,6 +279,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
                                packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                }
             }
             break;
         }
@@ -289,6 +294,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_DEBUG("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                }
             }
             break;
         }
@@ -311,6 +321,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_DEBUG("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                }
             }
             break;
         }
@@ -329,6 +344,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_DEBUG("B2B_RopeDetach: {}", packet->playerId);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->DetachRope(false);
+                }
             }
             break;
         }
