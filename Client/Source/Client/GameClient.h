@@ -39,7 +39,7 @@ protected:
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void shoot(FVector location, FRotator rotator);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
-        void changeSpeed(float speedValue, FVector speedVector);
+        void changeSpeed(FVector speedVector);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void rotate(FVector rotationVector);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)

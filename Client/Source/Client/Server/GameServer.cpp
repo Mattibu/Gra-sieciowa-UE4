@@ -254,9 +254,8 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, {}, [{},{},{}]",
-                             packet->playerId, packet->speedValue,
-                             packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
+                             packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }

@@ -89,11 +89,11 @@ void AGameClient::shoot(FVector location, FRotator rotator)
     }
 }
 
-void AGameClient::changeSpeed(float speedValue, FVector speedVector)
+void AGameClient::changeSpeed(FVector speedVector)
 {
     if (isConnectedAndIdentified())
     {
-        sendPacket(B2B_ChangeSpeed{ B2B_HChangeSpeed, {}, playerId, speedValue, speedVector });
+        sendPacket(B2B_ChangeSpeed{ B2B_HChangeSpeed, {}, playerId, speedVector });
     }
 }
 
@@ -266,9 +266,8 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
             if (packet)
             {
-                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, {}, [{},{},{}]",
-                             packet->playerId, packet->speedValue,
-                             packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                SPACEMMA_DEBUG("B2B_ChangeSpeed: {}, [{},{},{}]",
+                             packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
             }
             break;
         }

@@ -119,7 +119,6 @@ namespace spacemma
         uint8_t header{ B2B_HChangeSpeed };
         uint8_t padding{};
         uint16_t playerId{};
-        float speedValue;
         NetVector speedVector;
     };
 
