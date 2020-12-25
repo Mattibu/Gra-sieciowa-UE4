@@ -308,6 +308,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
 {
     if (!isClientAvailable(sourceClient))
     {
+        SPACEMMA_WARN("Rejecting packet from client {} that is no longer available.", sourceClient);
         return;
     }
     Header header = static_cast<Header>(*buffer->getPointer());
@@ -412,7 +413,7 @@ void AGameServer::handlePendingDisconnect()
 void AGameServer::processPendingPacket()
 {
     ByteBuffer* buff = nullptr;
-    unsigned char clientPort = 0;
+    unsigned short clientPort = 0;
     {
         std::lock_guard lock(receiveMutex);
         if (!receivedPackets.empty())
