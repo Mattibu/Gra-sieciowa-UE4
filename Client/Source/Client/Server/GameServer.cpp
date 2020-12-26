@@ -598,7 +598,7 @@ void AGameServer::Tick(float DeltaTime)
     if (currentMovementUpdateDelta >= MovementUpdateDelta)
     {
         currentMovementUpdateDelta -= MovementUpdateDelta;
-        //broadcastMovingPlayers();
+        broadcastMovingPlayers();
     }
 }
 
