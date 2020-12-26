@@ -2,8 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Client/Server/WinTCPClient.h"
 #include "Client/Server/Thread.h"
+#include "Client/Server/TCPClient.h"
 #include "Client/ShooterPlayer.h"
 #include <map>
 #include "GameClient.generated.h"
@@ -62,7 +62,7 @@ private:
     std::mutex connectionMutex{}, receiveMutex{}, sendMutex{};
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     std::unique_ptr<spacemma::BufferPool> bufferPool{};
-    std::unique_ptr<spacemma::WinTCPClient> tcpClient{};
+    std::unique_ptr<spacemma::TCPClient> tcpClient{};
     std::map<unsigned short, AShooterPlayer*> otherPlayers{};
     unsigned short playerId{ 0 };
 };

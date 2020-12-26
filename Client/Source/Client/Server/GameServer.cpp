@@ -1,8 +1,8 @@
 #include "GameServer.h"
 #include "Client/Server/SpaceLog.h"
 #include "Client/Server/WinThread.h"
+#include "Client/Server/WinTCPMultiClientServer.h"
 #include "Client/Shared/Packets.h"
-#include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 
 using namespace spacemma;
@@ -186,7 +186,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         }
         if (currentBuff)
         {
-            bool sent = srv->tcpServer->send(currentBuff, port);
+            bool sent = srv->tcpServer->sendTo(currentBuff, port);
             //SPACEMMA_DEBUG("Sent packet {} to {}!", *reinterpret_cast<uint8_t*>(currentBuff->getPointer()), port);
             srv->bufferPool->freeBuffer(currentBuff);
             currentBuff = nullptr;
@@ -214,7 +214,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
     SPACEMMA_DEBUG("Starting threadReceive({})...", port);
     do
     {
-        ByteBuffer* buffer = srv->tcpServer->receive(port);
+        ByteBuffer* buffer = srv->tcpServer->receiveFrom(port);
         if (buffer)
         {
             std::lock_guard lock(srv->receiveMutex);

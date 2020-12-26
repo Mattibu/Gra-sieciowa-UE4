@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Client/Server/WinTCPMultiClientServer.h"
+#include "Client/Server/TCPMultiClientServer.h"
 #include "Client/Server/Thread.h"
 #include "Client/ShooterPlayer.h"
 #include <map>
@@ -66,7 +66,7 @@ private:
     std::recursive_mutex connectionMutex{};
     std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{}, spawnAwaitingMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
-    std::unique_ptr<spacemma::WinTCPMultiClientServer> tcpServer{};
+    std::unique_ptr<spacemma::TCPMultiClientServer> tcpServer{};
     spacemma::Thread* acceptThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
     std::map<unsigned short, spacemma::Thread*> sendThreads{};

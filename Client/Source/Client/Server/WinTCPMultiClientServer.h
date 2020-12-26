@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TCPServer.h"
+#include "TCPMultiClientServer.h"
 #include "WinsockUtil.h"
 
 namespace spacemma
@@ -13,17 +13,11 @@ namespace spacemma
         bool isConnected{};
     };
 
-    struct ClientBuffers
-    {
-        std::recursive_mutex bufferMutex{};
-        std::vector<ByteBuffer*> buffers{}; // todo: change it to queue
-    };
-
     /**
      * A multi-client TCP server implementation.
      * TODO: remove race conditions
      */
-    class WinTCPMultiClientServer final : public TCPServer
+    class WinTCPMultiClientServer final : public TCPMultiClientServer
     {
     public:
         WinTCPMultiClientServer(BufferPool& bufferPool, unsigned char maxClients);
@@ -35,19 +29,19 @@ namespace spacemma
         bool bindAndListen(gsl::cstring_span ipAddress, unsigned short port) override;
         bool isListening() override;
         unsigned short acceptClient() override;
-        unsigned char getClientCount() const;
-        std::vector<unsigned short> getClientPorts() const;
-        bool isClientAlive(unsigned short clientPort) const;
+        unsigned char getClientCount() const override;
+        std::vector<unsigned short> getClientPorts() const override;
+        bool isClientAlive(unsigned short clientPort) const override;
         bool send(gsl::not_null<ByteBuffer*> buff) override;
-        bool send(gsl::not_null<ByteBuffer*> buff, unsigned short clientPort);
+        bool sendTo(gsl::not_null<ByteBuffer*> buff, unsigned short clientPort) override;
         ByteBuffer* receive() override;
-        ByteBuffer* receive(unsigned short clientPort);
+        ByteBuffer* receiveFrom(unsigned short clientPort) override;
         bool shutdown() override;
         bool close() override;
         bool isConnected() override;
-        bool shutdownClient(unsigned short port) const;
-        bool closeClient(unsigned short port) const;
-        bool isConnected(unsigned short port) const;
+        bool shutdownClient(unsigned short port) const override;
+        bool closeClient(unsigned short port) const override;
+        bool isConnected(unsigned short port) const override;
     private:
         bool shutdownServer() const;
         bool closeServer();

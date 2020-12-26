@@ -1,6 +1,7 @@
 #include "GameClient.h"
 #include "Client/Server/WinThread.h"
 #include "Client/Shared/Packets.h"
+#include "Client/Server/WinTCPClient.h"
 #include "Engine/World.h"
 
 using namespace spacemma;

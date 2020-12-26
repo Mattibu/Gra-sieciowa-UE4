@@ -2,7 +2,7 @@
 #include "SpaceLog.h"
 
 spacemma::WinTCPMultiClientServer::WinTCPMultiClientServer(BufferPool& bufferPool, unsigned char maxClients)
-    : TCPServer(bufferPool), maxClients(maxClients)
+    : TCPMultiClientServer(bufferPool), maxClients(maxClients)
 {
     if (!maxClients)
     {
@@ -189,7 +189,7 @@ bool spacemma::WinTCPMultiClientServer::send(gsl::not_null<ByteBuffer*> buff)
     return sent;
 }
 
-bool spacemma::WinTCPMultiClientServer::send(gsl::not_null<ByteBuffer*> buff, unsigned short port)
+bool spacemma::WinTCPMultiClientServer::sendTo(gsl::not_null<ByteBuffer*> buff, unsigned short port)
 {
     ClientData* data = getClientData(port);
     if (data)
@@ -218,7 +218,7 @@ spacemma::ByteBuffer* spacemma::WinTCPMultiClientServer::receive()
     return nullptr; // unspecified client to receive from, just return nullptr
 }
 
-spacemma::ByteBuffer* spacemma::WinTCPMultiClientServer::receive(unsigned short port)
+spacemma::ByteBuffer* spacemma::WinTCPMultiClientServer::receiveFrom(unsigned short port)
 {
     ClientData* data = getClientData(port);
     if (data)
