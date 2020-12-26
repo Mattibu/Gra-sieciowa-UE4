@@ -402,12 +402,12 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
                 if (pair != players.end())
                 {
-                    pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    //pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
                 } else
                 {
                     SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
                 }
-                sendToAllBut(buffer, sourceClient, localPlayerId);
+                //sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -564,7 +564,7 @@ void AGameServer::broadcastMovingPlayers()
             bool recentlyMoved = pair.second;
             bool currentlyMoved =
                 !playerPair->second->GetSpeedVector().IsNearlyZero() ||
-                !playerPair->second->GetRotationVector().IsNearlyZero() ||
+                //!playerPair->second->GetRotationVector().IsNearlyZero() ||
                 location != recentPositions[pair.first] ||
                 rotation != recentRotations[pair.first];
             if (recentlyMoved || currentlyMoved)
