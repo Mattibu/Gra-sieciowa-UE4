@@ -200,7 +200,7 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
         if (toSend)
         {
             bool sent = clt->tcpClient->send(toSend);
-            SPACEMMA_DEBUG("Sent packet {}!", *reinterpret_cast<uint8_t*>(toSend->getPointer()));
+            //SPACEMMA_DEBUG("Sent packet {}!", *reinterpret_cast<uint8_t*>(toSend->getPointer()));
             clt->bufferPool->freeBuffer(toSend);
             if (!sent && !clt->tcpClient->isConnected())
             {
@@ -244,6 +244,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
                 if (packet->playerId == playerId)
                 {
+                    SPACEMMA_DEBUG("Adjusting self-position of {} (S2C_CreatePlayer)...", playerId);
                     SetActorLocation(packet->location.asFVector());
                     SetActorRotation(packet->rotator.asFRotator());
                 } else if (otherPlayers.find(packet->playerId) != otherPlayers.end())
@@ -251,6 +252,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     SPACEMMA_ERROR("Attempted to spawn player {} which is already up!", packet->playerId);
                 } else
                 {
+                    SPACEMMA_DEBUG("Spawning player {} ({})...", packet->playerId, playerId);
                     FActorSpawnParameters params{};
                     params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(packet->playerId)));
                     params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;

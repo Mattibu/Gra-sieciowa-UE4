@@ -184,7 +184,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         if (currentBuff)
         {
             bool sent = srv->tcpServer->send(currentBuff, port);
-            SPACEMMA_DEBUG("Sent packet {} to {}!", *reinterpret_cast<uint8_t*>(currentBuff->getPointer()), port);
+            //SPACEMMA_DEBUG("Sent packet {} to {}!", *reinterpret_cast<uint8_t*>(currentBuff->getPointer()), port);
             srv->bufferPool->freeBuffer(currentBuff);
             currentBuff = nullptr;
             if (!sent && !srv->tcpServer->isConnected(port))
@@ -403,34 +403,29 @@ void AGameServer::handlePlayerAwaitingSpawn()
     if (clientPort)
     {
         SPACEMMA_DEBUG("Spawning player {}...", clientPort);
-        AShooterPlayer* actor;
-        if (clientPort == localPlayerId)
-        {
-            actor = players.find(clientPort)->second;
-        } else
+        if (clientPort != localPlayerId)
         {
             FActorSpawnParameters params{};
             params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(clientPort)));
             params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-            actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f }, FRotator{}, params);
-        }
-        if (actor == nullptr)
-        {
-            SPACEMMA_ERROR("Failed to spawn player {}!", clientPort);
-        } else
-        {
-            sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
-                            actor->GetActorLocation(), actor->GetActorRotation() });
-            players.emplace(clientPort, actor);
+            AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f },
+                                                                           FRotator{}, params);
+
+            sendPacketToAllBut(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
+                            actor->GetActorLocation(), actor->GetActorRotation() }, localPlayerId);
             // tell the player about other players
             for (const auto& pair : players)
             {
-                if (pair.first != clientPort)
-                {
-                    sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
+                sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
                                  pair.second->GetActorLocation(), pair.second->GetActorRotation() });
-                }
             }
+            players.emplace(clientPort, actor);
+        } else
+        {
+            SPACEMMA_DEBUG("Spawning local player {}...", localPlayerId);
+            const std::map<unsigned short, AShooterPlayer*>::iterator& pair = players.find(localPlayerId);
+            sendPacketTo(localPlayerId, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, localPlayerId,
+                         pair->second->GetActorLocation(), pair->second->GetActorRotation() });
         }
     }
 }
