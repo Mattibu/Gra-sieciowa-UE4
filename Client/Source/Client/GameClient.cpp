@@ -343,7 +343,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             S2C_PlayerMovement* packet = reinterpretPacket<S2C_PlayerMovement>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
+                SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
                                packet->velocity.x, packet->velocity.y, packet->velocity.z);

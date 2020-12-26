@@ -384,7 +384,6 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
                 if (pair != players.end())
                 {
-                    SPACEMMA_WARN("VELOCITY OF {}, [{},{},{}]", packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
                     pair->second->SetVelocity(packet->velocity.asFVector());
                 } else
                 {
@@ -576,6 +575,9 @@ void AGameServer::broadcastMovingPlayers()
                 broadcastPlayerMovement(pair.first);
                 pair.second = currentlyMoved;
             }
+        } else
+        {
+            SPACEMMA_WARN("Player {} not found!", pair.first);
         }
     }
 }
