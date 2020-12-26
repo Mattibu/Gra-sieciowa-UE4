@@ -184,6 +184,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         if (currentBuff)
         {
             bool sent = srv->tcpServer->send(currentBuff, port);
+            SPACEMMA_DEBUG("Sent packet {} to {}!", *reinterpret_cast<uint8_t*>(currentBuff->getPointer()), port);
             srv->bufferPool->freeBuffer(currentBuff);
             currentBuff = nullptr;
             if (!sent && !srv->tcpServer->isConnected(port))

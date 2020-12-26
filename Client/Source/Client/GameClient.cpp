@@ -200,6 +200,7 @@ void AGameClient::threadSend(gsl::not_null<Thread*> thread, void* client)
         if (toSend)
         {
             bool sent = clt->tcpClient->send(toSend);
+            SPACEMMA_DEBUG("Sent packet {}!", *reinterpret_cast<uint8_t*>(toSend->getPointer()));
             clt->bufferPool->freeBuffer(toSend);
             if (!sent && !clt->tcpClient->isConnected())
             {
