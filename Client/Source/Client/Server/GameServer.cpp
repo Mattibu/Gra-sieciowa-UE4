@@ -399,16 +399,16 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                               packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
                 if (pair != players.end())
                 {
-                    //pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    pair->second->SetActorRotation(packet->rotator.asFRotator());
                 } else
                 {
                     SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
                 }
-                //sendToAllBut(buffer, sourceClient, localPlayerId);
+                sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -598,7 +598,7 @@ void AGameServer::Tick(float DeltaTime)
     if (currentMovementUpdateDelta >= MovementUpdateDelta)
     {
         currentMovementUpdateDelta -= MovementUpdateDelta;
-        broadcastMovingPlayers();
+        //broadcastMovingPlayers();
     }
 }
 

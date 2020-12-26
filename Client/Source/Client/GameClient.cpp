@@ -136,6 +136,14 @@ void AGameClient::updateVelocity(FVector velocity)
     }
 }
 
+void AGameClient::updateRotation()
+{
+    if (isConnectedAndIdentified())
+    {
+        sendPacket(B2B_Rotate{ B2B_HRotate, {}, playerId, ClientPawn->GetActorRotation() });
+    }
+}
+
 void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
@@ -320,16 +328,16 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                               packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
+                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
                 if (packet->playerId == playerId)
                 {
-                    //ClientPawn->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    ClientPawn->SetActorRotation(packet->rotator.asFRotator());
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        //pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                        pair->second->SetActorRotation(packet->rotator.asFRotator());
                     } else
                     {
                         SPACEMMA_WARN("Unable to adjust rotation vector of {} ({}). Player not found!", packet->playerId, playerId);

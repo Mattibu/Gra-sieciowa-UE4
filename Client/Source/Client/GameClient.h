@@ -47,6 +47,8 @@ protected:
         void detachRope();
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void updateVelocity(FVector velocity);
+    UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
+        void updateRotation();
 private:
     static void threadConnect(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* client);

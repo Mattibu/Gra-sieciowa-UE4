@@ -124,14 +124,14 @@ namespace spacemma
 
     /**
      * S2C: inform players about another player's rotation
-     * C2S: rotation attempt (verify the speed)
+     * C2S: rotation attempt
      */
     struct B2B_Rotate final
     {
         uint8_t header{ B2B_HRotate };
         uint8_t padding{};
         uint16_t playerId{};
-        NetVector rotationVector;
+        NetRotator rotator;
     };
 
     /**
