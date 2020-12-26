@@ -3,6 +3,7 @@
 #include "Client/Shared/Packets.h"
 #include "Client/Server/WinTCPClient.h"
 #include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 using namespace spacemma;
 
@@ -111,22 +112,6 @@ void AGameClient::shoot(FVector location, FRotator rotator)
     }
 }
 
-void AGameClient::changeSpeed(FVector speedVector)
-{
-    if (isConnectedAndIdentified())
-    {
-        sendPacket(B2B_ChangeSpeed{ B2B_HChangeSpeed, {}, playerId, speedVector });
-    }
-}
-
-void AGameClient::rotate(FVector rotationVector)
-{
-    if (isConnectedAndIdentified())
-    {
-        sendPacket(B2B_Rotate{ B2B_HRotate, {}, playerId, rotationVector });
-    }
-}
-
 void AGameClient::attachRope(FVector attachPosition)
 {
     if (isConnectedAndIdentified())
@@ -140,6 +125,14 @@ void AGameClient::detachRope()
     if (isConnectedAndIdentified())
     {
         sendPacket(B2B_RopeDetach{ B2B_HRopeDetach, {}, playerId });
+    }
+}
+
+void AGameClient::moveInDirection(FVector direction)
+{
+    if (isConnectedAndIdentified())
+    {
+        sendPacket(B2B_MoveInDirection{ B2B_HMoveInDirection, {}, playerId, direction });
     }
 }
 
@@ -297,22 +290,22 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             }
             break;
         }
-        case B2B_HChangeSpeed:
+        case B2B_HMoveInDirection:
         {
-            B2B_ChangeSpeed* packet = reinterpretPacket<B2B_ChangeSpeed>(buffer);
+            B2B_MoveInDirection* packet = reinterpretPacket<B2B_MoveInDirection>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("B2B_ChangeSpeed: {}, [{},{},{}]",
-                               packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                SPACEMMA_TRACE("B2B_MoveInDirection: {}, [{},{},{}]",
+                               packet->playerId, packet->direction.x, packet->direction.y, packet->direction.z);
                 if (packet->playerId == playerId)
                 {
-                    ClientPawn->SetSpeedVector(packet->speedVector.asFVector(), false);
+                    ClientPawn->MoveInDirection(packet->direction.asFVector(), false);
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                        pair->second->MoveInDirection(packet->direction.asFVector(), false);
                     } else
                     {
                         SPACEMMA_WARN("Unable to adjust speed vector of {} ({}). Player not found!", packet->playerId, playerId);
@@ -330,13 +323,13 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
                 if (packet->playerId == playerId)
                 {
-                    ClientPawn->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    //ClientPawn->SetRotationVector(packet->rotationVector.asFVector(), false);
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                        //pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
                     } else
                     {
                         SPACEMMA_WARN("Unable to adjust rotation vector of {} ({}). Player not found!", packet->playerId, playerId);
@@ -353,18 +346,18 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
-                               packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                               packet->velocity.x, packet->velocity.y, packet->velocity.z);
                 if (packet->playerId == playerId)
                 {
                     ClientPawn->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
-                    ClientPawn->SetSpeedVector(packet->speedVector.asFVector(), false);
+                    ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
                         pair->second->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
-                        pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                        pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                     } else
                     {
                         SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);

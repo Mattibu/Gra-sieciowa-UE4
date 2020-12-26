@@ -23,15 +23,9 @@ public:
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void DetachRope(bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
-        void SetSpeedVector(FVector speed, bool broadcast);
-    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
-        void SetRotationVector(FVector rotationVector, bool broadcast);
+        void MoveInDirection(FVector direction, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         float GetRopeCooldown();
-    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
-        FVector GetRotationVector();
-    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
-        FVector GetSpeedVector();
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
