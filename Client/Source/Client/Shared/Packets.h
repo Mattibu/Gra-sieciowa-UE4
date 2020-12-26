@@ -18,7 +18,7 @@ namespace spacemma
         S2C_HCreatePlayer,
         S2C_HDestroyPlayer,
         B2B_HShoot,
-        B2B_HMoveInDirection,
+        B2B_HUpdateVelocity,
         B2B_HRotate,
         S2C_HPlayerMovement,
         B2B_HRopeAttach,
@@ -111,15 +111,15 @@ namespace spacemma
     };
 
     /**
-     * S2C: inform players about another player's speed change
-     * C2S: speed change attempt (verify the speed)
+     * S2C: inform players about another player's velocity update
+     * C2S: velocity change attempt (verify the velocity)
      */
-    struct B2B_MoveInDirection final
+    struct B2B_UpdateVelocity final
     {
-        uint8_t header{ B2B_HMoveInDirection };
+        uint8_t header{ B2B_HUpdateVelocity };
         uint8_t padding{};
         uint16_t playerId{};
-        NetVector direction;
+        NetVector velocity;
     };
 
     /**

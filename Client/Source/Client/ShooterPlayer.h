@@ -19,11 +19,11 @@ public:
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void AttachRope(FVector position, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void SetVelocity(FVector velocity);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void SetRopeCooldown(float cooldown, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void DetachRope(bool broadcast);
-    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
-        void MoveInDirection(FVector direction, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         float GetRopeCooldown();
 protected:

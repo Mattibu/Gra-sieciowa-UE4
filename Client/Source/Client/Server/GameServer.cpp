@@ -374,20 +374,21 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             }
             break;
         }
-        case B2B_HMoveInDirection:
+        case B2B_HUpdateVelocity:
         {
-            B2B_MoveInDirection* packet = reinterpretPacket<B2B_MoveInDirection>(buffer);
+            B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("B2B_MoveInDirection: {}, [{},{},{}]",
-                               packet->playerId, packet->direction.x, packet->direction.y, packet->direction.z);
+                SPACEMMA_TRACE("B2B_UpdateVelocity: {}, [{},{},{}]",
+                               packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
                 if (pair != players.end())
                 {
-                    pair->second->MoveInDirection(packet->direction.asFVector(), false);
+                    SPACEMMA_WARN("VELOCITY OF {}, [{},{},{}]", packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
+                    pair->second->SetVelocity(packet->velocity.asFVector());
                 } else
                 {
-                    SPACEMMA_WARN("Failed to change speed of {}. Player not found!", packet->playerId);
+                    SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
                 }
                 sendToAllBut(buffer, sourceClient, localPlayerId);
             }
@@ -546,7 +547,7 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
     if (pair != players.end())
     {
         sendPacketToAllBut(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
-                           pair->second->GetActorRotation(), pair->second->GetCharacterMovement()->Velocity }, localPlayerId);
+                           pair->second->GetActorRotation(), pair->second->GetVelocity() }, localPlayerId);
     } else
     {
         SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
@@ -564,7 +565,7 @@ void AGameServer::broadcastMovingPlayers()
             FRotator rotation = playerPair->second->GetActorRotation();
             bool recentlyMoved = pair.second;
             bool currentlyMoved =
-                !playerPair->second->GetCharacterMovement()->Velocity.IsNearlyZero() ||
+                !playerPair->second->GetVelocity().IsNearlyZero() ||
                 //!playerPair->second->GetRotationVector().IsNearlyZero() ||
                 location != recentPositions[pair.first] ||
                 rotation != recentRotations[pair.first];

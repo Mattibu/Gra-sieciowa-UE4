@@ -40,13 +40,13 @@ protected:
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool closeConnection();
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
-        void shoot(FVector location, FRotator rotator);
+        void shoot();
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void attachRope(FVector attachPosition);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void detachRope();
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
-        void moveInDirection(FVector direction);
+        void updateVelocity(FVector velocity);
 private:
     static void threadConnect(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* client);
