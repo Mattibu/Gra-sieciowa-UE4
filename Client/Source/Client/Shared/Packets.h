@@ -144,7 +144,6 @@ namespace spacemma
         uint16_t playerId{};
         NetVector location;
         NetRotator rotator;
-        float speedValue;
         NetVector speedVector;
     };
 

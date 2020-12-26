@@ -98,6 +98,9 @@ bool AGameServer::stopServer()
             delete pair.second;
         }
         perClientSendBuffers.clear();
+        recentlyMoving.clear();
+        recentPositions.clear();
+        recentRotations.clear();
         SPACEMMA_DEBUG("Resetting tcpServer...");
         tcpServer.reset();
         SPACEMMA_DEBUG("Resetting bufferPool...");
@@ -254,6 +257,21 @@ void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short
     }
 }
 
+void AGameServer::sendToAllBut(gsl::not_null<spacemma::ByteBuffer*> buffer, unsigned short ignoredClient1, unsigned short ignoredClient2)
+{
+    std::lock_guard lock(connectionMutex);
+    for (const auto& pair : perClientSendBuffers)
+    {
+        if (pair.first != ignoredClient1 && pair.first != ignoredClient2)
+        {
+            //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
+            ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
+            memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
+            sendTo(pair.first, buff);
+        }
+    }
+}
+
 void AGameServer::sendTo(unsigned short client, gsl::not_null<ByteBuffer*> buffer)
 {
     ClientBuffers* buffers = perClientSendBuffers[client];
@@ -306,6 +324,23 @@ void AGameServer::disconnectClient(unsigned short client)
         }
     }
     {
+        const auto& pair1 = recentlyMoving.find(client);
+        if (pair1 != recentlyMoving.end())
+        {
+            recentlyMoving.erase(pair1);
+        }
+        const auto& pair2 = recentPositions.find(client);
+        if (pair2 != recentPositions.end())
+        {
+            recentPositions.erase(pair2);
+        }
+        const auto& pair3 = recentRotations.find(client);
+        if (pair3 != recentRotations.end())
+        {
+            recentRotations.erase(pair3);
+        }
+    }
+    {
         const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(client);
         if (pair != players.end())
         {
@@ -345,7 +380,15 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             {
                 SPACEMMA_TRACE("B2B_ChangeSpeed: {}, [{},{},{}]",
                                packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
-                sendToAllBut(buffer, sourceClient);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
+                if (pair != players.end())
+                {
+                    pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                } else
+                {
+                    SPACEMMA_WARN("Failed to change speed of {}. Player not found!", packet->playerId);
+                }
+                sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -356,7 +399,15 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             {
                 SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
-                sendToAllBut(buffer, sourceClient);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
+                if (pair != players.end())
+                {
+                    pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                } else
+                {
+                    SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
+                }
+                sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -367,7 +418,15 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             {
                 SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
-                sendToAllBut(buffer, sourceClient);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
+                if (pair != players.end())
+                {
+                    pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                } else
+                {
+                    SPACEMMA_WARN("Failed to attach rope for {}. Player not found!", packet->playerId);
+                }
+                sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -377,7 +436,15 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             if (packet)
             {
                 SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
-                sendToAllBut(buffer, sourceClient);
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
+                if (pair != players.end())
+                {
+                    pair->second->DetachRope(false);
+                } else
+                {
+                    SPACEMMA_WARN("Failed to detach rope for {}. Player not found!", packet->playerId);
+                }
+                sendToAllBut(buffer, sourceClient, localPlayerId);
             }
             break;
         }
@@ -420,13 +487,18 @@ void AGameServer::handlePlayerAwaitingSpawn()
                                  pair.second->GetActorLocation(), pair.second->GetActorRotation() });
             }
             players.emplace(clientPort, actor);
+            recentPositions.emplace(clientPort, actor->GetActorLocation());
+            recentRotations.emplace(clientPort, actor->GetActorRotation());
         } else
         {
             SPACEMMA_DEBUG("Spawning local player {}...", localPlayerId);
             const std::map<unsigned short, AShooterPlayer*>::iterator& pair = players.find(localPlayerId);
             sendPacketTo(localPlayerId, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, localPlayerId,
                          pair->second->GetActorLocation(), pair->second->GetActorRotation() });
+            recentPositions.emplace(clientPort, pair->second->GetActorLocation());
+            recentRotations.emplace(clientPort, pair->second->GetActorRotation());
         }
+        recentlyMoving.emplace(clientPort, false);
     }
 }
 
@@ -467,6 +539,45 @@ void AGameServer::processPendingPacket()
     }
 }
 
+void AGameServer::broadcastPlayerMovement(unsigned short client)
+{
+    const auto& pair = players.find(client);
+    if (pair != players.end())
+    {
+        sendPacketToAllBut(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
+                           pair->second->GetActorRotation(), pair->second->GetSpeedVector() }, localPlayerId);
+    } else
+    {
+        SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
+    }
+}
+
+void AGameServer::broadcastMovingPlayers()
+{
+    for (std::map<unsigned short, bool>::value_type& pair : recentlyMoving)
+    {
+        const std::map<unsigned short, AShooterPlayer*>::iterator& playerPair = players.find(pair.first);
+        if (playerPair != players.end())
+        {
+            FVector location = playerPair->second->GetActorLocation();
+            FRotator rotation = playerPair->second->GetActorRotation();
+            bool recentlyMoved = pair.second;
+            bool currentlyMoved =
+                !playerPair->second->GetSpeedVector().IsNearlyZero() ||
+                !playerPair->second->GetRotationVector().IsNearlyZero() ||
+                location != recentPositions[pair.first] ||
+                rotation != recentRotations[pair.first];
+            if (recentlyMoved || currentlyMoved)
+            {
+                recentPositions[pair.first] = location;
+                recentRotations[pair.first] = rotation;
+                broadcastPlayerMovement(pair.first);
+                pair.second = currentlyMoved;
+            }
+        }
+    }
+}
+
 bool AGameServer::isClientAvailable(unsigned short client)
 {
     std::lock_guard lock(liveClientsMutex);
@@ -479,5 +590,11 @@ void AGameServer::Tick(float DeltaTime)
     handlePlayerAwaitingSpawn();
     processPendingPacket();
     handlePendingDisconnect();
+    currentMovementUpdateDelta += DeltaTime;
+    if (currentMovementUpdateDelta >= MovementUpdateDelta)
+    {
+        currentMovementUpdateDelta -= MovementUpdateDelta;
+        broadcastMovingPlayers();
+    }
 }
 

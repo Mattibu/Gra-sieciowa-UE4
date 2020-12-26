@@ -278,6 +278,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                 if (pair != otherPlayers.end())
                 {
+                    SPACEMMA_DEBUG("Destroying player {} ({})...", packet->playerId, playerId);
                     pair->second->Destroy();
                     otherPlayers.erase(pair);
                 }
@@ -302,10 +303,19 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_TRACE("B2B_ChangeSpeed: {}, [{},{},{}]",
                                packet->playerId, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
+                if (packet->playerId == playerId)
                 {
-                    pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                    ClientPawn->SetSpeedVector(packet->speedVector.asFVector(), false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to adjust speed vector of {} ({}). Player not found!", packet->playerId, playerId);
+                    }
                 }
             }
             break;
@@ -317,10 +327,19 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                packet->rotationVector.x, packet->rotationVector.y, packet->rotationVector.z);
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
+                if (packet->playerId == playerId)
                 {
-                    pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    ClientPawn->SetRotationVector(packet->rotationVector.asFVector(), false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->SetRotationVector(packet->rotationVector.asFVector(), false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to adjust rotation vector of {} ({}). Player not found!", packet->playerId, playerId);
+                    }
                 }
             }
             break;
@@ -333,7 +352,23 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], {}, [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
-                               packet->speedValue, packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                               packet->speedVector.x, packet->speedVector.y, packet->speedVector.z);
+                if (packet->playerId == playerId)
+                {
+                    ClientPawn->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
+                    ClientPawn->SetSpeedVector(packet->speedVector.asFVector(), false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
+                        pair->second->SetSpeedVector(packet->speedVector.asFVector(), false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
+                    }
+                }
             }
             break;
         }
@@ -344,10 +379,19 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             {
                 SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
+                if (packet->playerId == playerId)
                 {
-                    pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                    ClientPawn->AttachRope(packet->attachPosition.asFVector(), false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to attach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                    }
                 }
             }
             break;
@@ -358,6 +402,20 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_TRACE("S2C_RopeFailed: {}, {}", packet->playerId, packet->ropeCooldown);
+                if (packet->playerId == playerId)
+                {
+                    ClientPawn->SetRopeCooldown(packet->ropeCooldown, false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->SetRopeCooldown(packet->ropeCooldown, false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to update rope cooldown for player {} ({}). Player not found!", packet->playerId, playerId);
+                    }
+                }
             }
             break;
         }
@@ -367,10 +425,19 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             if (packet)
             {
                 SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
+                if (packet->playerId == playerId)
                 {
-                    pair->second->DetachRope(false);
+                    ClientPawn->DetachRope(false);
+                } else
+                {
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->DetachRope(false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Unable to detach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                    }
                 }
             }
             break;

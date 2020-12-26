@@ -25,6 +25,8 @@ public:
         int32 ServerPort = 4444;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MaxClients = 8;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        float MovementUpdateDelta = 0.5f;
     UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
         TSubclassOf<AActor> PlayerBP;
     UFUNCTION(BlueprintCallable, Category = Server_Management)
@@ -48,6 +50,9 @@ private:
     void sendPacketToAllBut(T packet, unsigned short ignoredClient);
     void sendToAllBut(gsl::not_null<spacemma::ByteBuffer*> buffer, unsigned short ignoredClient);
     template<typename T>
+    void sendPacketToAllBut(T packet, unsigned short ignoredClient1, unsigned short ignoredClient2);
+    void sendToAllBut(gsl::not_null<spacemma::ByteBuffer*> buffer, unsigned short ignoredClient1, unsigned short ignoredClient2);
+    template<typename T>
     void sendPacketTo(unsigned short client, T packet);
     void sendTo(unsigned short client, gsl::not_null<spacemma::ByteBuffer*> buffer);
     void disconnectClient(unsigned short client);
@@ -55,6 +60,8 @@ private:
     void handlePlayerAwaitingSpawn();
     void handlePendingDisconnect();
     void processPendingPacket();
+    void broadcastPlayerMovement(unsigned short client);
+    void broadcastMovingPlayers();
     bool isClientAvailable(unsigned short client);
     std::recursive_mutex connectionMutex{};
     std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{}, spawnAwaitingMutex{};
@@ -66,10 +73,14 @@ private:
     std::map<unsigned short, spacemma::Thread*> receiveThreads{};
     std::map<unsigned short, AShooterPlayer*> players{};
     std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
+    std::map<unsigned short, bool> recentlyMoving{}; // todo: replace these 3 maps with 1 map of struct containing bool, FVector and FRotator, current solution is nasty
+    std::map<unsigned short, FVector> recentPositions{};
+    std::map<unsigned short, FRotator> recentRotations{};
     std::set<unsigned short> disconnectingPlayers{};
     std::set<unsigned short> liveClients{};
     std::set<unsigned short> playersAwaitingSpawn{};
     unsigned short localPlayerId{};
+    float currentMovementUpdateDelta{ 0.0f };
 };
 
 template<typename T>
@@ -82,11 +93,23 @@ void AGameServer::sendPacketToAll(T packet)
 }
 
 template<typename T>
-inline void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient)
+void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient)
 {
     for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
     {
-        if(pair.first != ignoredClient)
+        if (pair.first != ignoredClient)
+        {
+            sendPacketTo(pair.first, packet);
+        }
+    }
+}
+
+template<typename T>
+void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient1, unsigned short ignoredClient2)
+{
+    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
+    {
+        if (pair.first != ignoredClient1 && pair.first != ignoredClient2)
         {
             sendPacketTo(pair.first, packet);
         }

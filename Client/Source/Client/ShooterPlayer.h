@@ -26,6 +26,12 @@ public:
         void SetSpeedVector(FVector speed, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void SetRotationVector(FVector rotationVector, bool broadcast);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        float GetRopeCooldown();
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        FVector GetRotationVector();
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        FVector GetSpeedVector();
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
