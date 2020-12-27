@@ -60,6 +60,7 @@ private:
     void handlePlayerAwaitingSpawn();
     void handlePendingDisconnect();
     void processPendingPacket();
+    void processAllPendingPackets();
     void broadcastPlayerMovement(unsigned short client);
     void broadcastMovingPlayers();
     bool isClientAvailable(unsigned short client);

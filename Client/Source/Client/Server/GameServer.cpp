@@ -543,6 +543,14 @@ void AGameServer::processPendingPacket()
     }
 }
 
+void AGameServer::processAllPendingPackets()
+{
+    while (!receivedPackets.empty())
+    {
+        processPendingPacket();
+    }
+}
+
 void AGameServer::broadcastPlayerMovement(unsigned short client)
 {
     const auto& pair = players.find(client);
@@ -595,7 +603,7 @@ void AGameServer::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     handlePlayerAwaitingSpawn();
-    processPendingPacket();
+    processAllPendingPackets();
     handlePendingDisconnect();
     currentMovementUpdateDelta += DeltaTime;
     if (currentMovementUpdateDelta >= movementUpdateDelta)
