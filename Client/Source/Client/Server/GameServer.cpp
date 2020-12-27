@@ -17,13 +17,14 @@ struct ThreadArgs
 
 AGameServer::AGameServer()
 {
-    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = false;
 
 }
 
 bool AGameServer::startServer()
 {
     std::lock_guard lock(startStopMutex);
+    movementUpdateDelta = 1.0f / static_cast<float>(MovementUpdateTickRate);
     if (tcpServer)
     {
         SPACEMMA_WARN("Attempted to start server but it's already up!");
@@ -41,6 +42,7 @@ bool AGameServer::startServer()
     {
         acceptThread = new WinThread();
         acceptThread->run(threadAcceptClients, this);
+        SetActorTickEnabled(true);
         return true;
     }
     SPACEMMA_ERROR("Game server initialization failed!");
@@ -57,6 +59,7 @@ bool AGameServer::isServerRunning() const
 bool AGameServer::stopServer()
 {
     std::lock_guard lock(startStopMutex);
+    SetActorTickEnabled(false);
     SPACEMMA_DEBUG("Stopping server...");
     if (tcpServer)
     {
@@ -595,9 +598,9 @@ void AGameServer::Tick(float DeltaTime)
     processPendingPacket();
     handlePendingDisconnect();
     currentMovementUpdateDelta += DeltaTime;
-    if (currentMovementUpdateDelta >= MovementUpdateDelta)
+    if (currentMovementUpdateDelta >= movementUpdateDelta)
     {
-        currentMovementUpdateDelta -= MovementUpdateDelta;
+        currentMovementUpdateDelta -= movementUpdateDelta;
         broadcastMovingPlayers();
     }
 }

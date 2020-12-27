@@ -26,7 +26,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MaxClients = 8;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
-        float MovementUpdateDelta = 0.5f;
+        int32 MovementUpdateTickRate = 10;
     UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
         TSubclassOf<AActor> PlayerBP;
     UFUNCTION(BlueprintCallable, Category = Server_Management)
@@ -80,7 +80,7 @@ private:
     std::set<unsigned short> liveClients{};
     std::set<unsigned short> playersAwaitingSpawn{};
     unsigned short localPlayerId{};
-    float currentMovementUpdateDelta{ 0.0f };
+    float movementUpdateDelta{}, currentMovementUpdateDelta{ 0.0f };
 };
 
 template<typename T>
