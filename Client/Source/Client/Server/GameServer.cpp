@@ -17,7 +17,7 @@ struct ThreadArgs
 
 AGameServer::AGameServer()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 
 }
 
