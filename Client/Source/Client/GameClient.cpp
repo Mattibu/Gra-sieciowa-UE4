@@ -20,7 +20,13 @@ void AGameClient::BeginPlay()
 
 void AGameClient::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    closeConnection();
+    switch (EndPlayReason)
+    {
+        case EEndPlayReason::Type::EndPlayInEditor:
+        case EEndPlayReason::Type::RemovedFromWorld:
+            closeConnection();
+            break;
+    }
     Super::EndPlay(EndPlayReason);
 }
 
@@ -74,21 +80,27 @@ bool AGameClient::closeConnection()
     }
     if (tcpClient)
     {
-        SPACEMMA_DEBUG("Interrupting client threads...");
-        bool conn = tcpClient->isConnected();
-        if (conn)
+        if (sendThread)
         {
+            SPACEMMA_DEBUG("Interrupting sendThread...");
             sendThread->interrupt();
+        }
+        if (receiveThread)
+        {
+            SPACEMMA_DEBUG("Interrupting receiveThread...");
             receiveThread->interrupt();
         }
         SPACEMMA_DEBUG("Closing tcpClient...");
         tcpClient->close();
         SPACEMMA_DEBUG("Joining threads...");
-        if (conn)
+        if (sendThread)
         {
             sendThread->join();
-            receiveThread->join();
             delete sendThread;
+        }
+        if (receiveThread)
+        {
+            receiveThread->join();
             delete receiveThread;
         }
         SPACEMMA_DEBUG("Resetting tcpClient...");
@@ -98,9 +110,6 @@ bool AGameClient::closeConnection()
         playerId = 0;
         return true;
     }
-    SPACEMMA_DEBUG("Resetting bufferPool...");
-    bufferPool.reset();
-    playerId = 0;
     return false;
 }
 
@@ -244,13 +253,16 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                bool valid = true;
+                FVector locVec{ packet->location.asFVector() };
                 if (packet->playerId == playerId)
                 {
                     SPACEMMA_DEBUG("Adjusting self-position of {} (S2C_CreatePlayer)...", playerId);
-                    ClientPawn->SetActorLocation(packet->location.asFVector());
+                    ClientPawn->SetActorLocation(locVec);
                     ClientPawn->SetActorRotation(packet->rotator.asFRotator());
                 } else if (otherPlayers.find(packet->playerId) != otherPlayers.end())
                 {
+                    valid = false;
                     SPACEMMA_ERROR("Attempted to spawn player {} which is already up!", packet->playerId);
                 } else
                 {
@@ -259,14 +271,19 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(packet->playerId)));
                     params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
                     AShooterPlayer* actor =
-                        GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, packet->location.asFVector(), packet->rotator.asFRotator(), params);
+                        GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, locVec, packet->rotator.asFRotator(), params);
                     if (actor == nullptr)
                     {
+                        valid = false;
                         SPACEMMA_ERROR("Failed to create player {}!", packet->playerId);
                     } else
                     {
                         otherPlayers.emplace(packet->playerId, actor);
                     }
+                }
+                if (valid)
+                {
+                    //todo: initialize position for interpolation
                 }
             }
             break;
@@ -355,21 +372,29 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
                                packet->velocity.x, packet->velocity.y, packet->velocity.z);
+                FVector locVec{ packet->location.asFVector() };
+                bool valid = true;
                 if (packet->playerId == playerId)
                 {
-                    ClientPawn->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
+                    ClientPawn->SetActorRotation(packet->rotator.asFRotator());
                     ClientPawn->SetVelocity(packet->velocity.asFVector());
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        pair->second->SetActorLocationAndRotation(packet->location.asFVector(), packet->rotator.asFRotator());
+                        pair->second->SetActorRotation(packet->rotator.asFRotator());
                         pair->second->SetVelocity(packet->velocity.asFVector());
                     } else
                     {
+                        valid = false;
                         SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
                     }
+                }
+                if (valid)
+                {
+                    // todo: interpolate position etc
+                    (packet->playerId == playerId ? ClientPawn : otherPlayers[packet->playerId])->SetActorLocation(locVec);
                 }
             }
             break;
@@ -473,6 +498,9 @@ void AGameClient::processPendingPacket()
 void AGameClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    processPendingPacket();
+    if (isConnected())
+    {
+        processPendingPacket();
+    }
 }
 

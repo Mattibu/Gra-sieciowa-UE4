@@ -18,8 +18,6 @@ public:
     AGameServer();
     virtual void Tick(float DeltaTime) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
-        AShooterPlayer* LocalPlayer = nullptr;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 ServerPort = 4444;
@@ -80,7 +78,6 @@ private:
     std::set<unsigned short> disconnectingPlayers{};
     std::set<unsigned short> liveClients{};
     std::set<unsigned short> playersAwaitingSpawn{};
-    unsigned short localPlayerId{};
     float movementUpdateDelta{}, currentMovementUpdateDelta{ 0.0f };
 };
 

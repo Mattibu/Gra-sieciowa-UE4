@@ -121,7 +121,13 @@ void AGameServer::BeginPlay()
 
 void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    stopServer();
+    switch (EndPlayReason)
+    {
+        case EEndPlayReason::Type::EndPlayInEditor:
+        case EEndPlayReason::Type::RemovedFromWorld:
+            stopServer();
+            break;
+    }
     Super::EndPlay(EndPlayReason);
 }
 
@@ -153,12 +159,6 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
                     while (!args.received);
                     srv->sendThreads.emplace(port, sendThread);
                     srv->receiveThreads.emplace(port, receiveThread);
-                }
-                // todo: change local player (same process) detection to something nicer.
-                if (srv->players.empty() && srv->LocalPlayer != nullptr)
-                {
-                    srv->localPlayerId = port;
-                    srv->players.emplace(port, srv->LocalPlayer);
                 }
                 srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
                 std::lock_guard lock2(srv->spawnAwaitingMutex);
@@ -392,7 +392,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
                 }
-                sendToAllBut(buffer, sourceClient, localPlayerId);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -411,7 +411,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
                 }
-                sendToAllBut(buffer, sourceClient, localPlayerId);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -430,7 +430,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_WARN("Failed to attach rope for {}. Player not found!", packet->playerId);
                 }
-                sendToAllBut(buffer, sourceClient, localPlayerId);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -448,7 +448,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_WARN("Failed to detach rope for {}. Player not found!", packet->playerId);
                 }
-                sendToAllBut(buffer, sourceClient, localPlayerId);
+                sendToAllBut(buffer, sourceClient);
             }
             break;
         }
@@ -474,34 +474,23 @@ void AGameServer::handlePlayerAwaitingSpawn()
     if (clientPort)
     {
         SPACEMMA_DEBUG("Spawning player {}...", clientPort);
-        if (clientPort != localPlayerId)
-        {
-            FActorSpawnParameters params{};
-            params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(clientPort)));
-            params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-            AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f },
-                                                                           FRotator{}, params);
+        FActorSpawnParameters params{};
+        params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(clientPort)));
+        params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+        AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f },
+                                                                       FRotator{}, params);
 
-            sendPacketToAllBut(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
-                            actor->GetActorLocation(), actor->GetActorRotation() }, localPlayerId);
-            // tell the player about other players
-            for (const auto& pair : players)
-            {
-                sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
-                                 pair.second->GetActorLocation(), pair.second->GetActorRotation() });
-            }
-            players.emplace(clientPort, actor);
-            recentPositions.emplace(clientPort, actor->GetActorLocation());
-            recentRotations.emplace(clientPort, actor->GetActorRotation());
-        } else
+        sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
+                        actor->GetActorLocation(), actor->GetActorRotation() });
+        // tell the player about other players
+        for (const auto& pair : players)
         {
-            SPACEMMA_DEBUG("Spawning local player {}...", localPlayerId);
-            const std::map<unsigned short, AShooterPlayer*>::iterator& pair = players.find(localPlayerId);
-            sendPacketTo(localPlayerId, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, localPlayerId,
-                         pair->second->GetActorLocation(), pair->second->GetActorRotation() });
-            recentPositions.emplace(clientPort, pair->second->GetActorLocation());
-            recentRotations.emplace(clientPort, pair->second->GetActorRotation());
+            sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
+                             pair.second->GetActorLocation(), pair.second->GetActorRotation() });
         }
+        players.emplace(clientPort, actor);
+        recentPositions.emplace(clientPort, actor->GetActorLocation());
+        recentRotations.emplace(clientPort, actor->GetActorRotation());
         recentlyMoving.emplace(clientPort, false);
     }
 }
@@ -556,8 +545,8 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
     const auto& pair = players.find(client);
     if (pair != players.end())
     {
-        sendPacketToAllBut(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
-                           pair->second->GetActorRotation(), pair->second->GetVelocity() }, localPlayerId);
+        sendPacketToAll(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
+                           pair->second->GetActorRotation(), pair->second->GetVelocity() });
     } else
     {
         SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
@@ -602,14 +591,17 @@ bool AGameServer::isClientAvailable(unsigned short client)
 void AGameServer::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    handlePlayerAwaitingSpawn();
-    processAllPendingPackets();
-    handlePendingDisconnect();
-    currentMovementUpdateDelta += DeltaTime;
-    if (currentMovementUpdateDelta >= movementUpdateDelta)
+    if (isServerRunning())
     {
-        currentMovementUpdateDelta -= movementUpdateDelta;
-        broadcastMovingPlayers();
+        handlePlayerAwaitingSpawn();
+        processAllPendingPackets();
+        handlePendingDisconnect();
+        currentMovementUpdateDelta += DeltaTime;
+        if (currentMovementUpdateDelta >= movementUpdateDelta)
+        {
+            currentMovementUpdateDelta -= movementUpdateDelta;
+            broadcastMovingPlayers();
+        }
     }
 }
 
