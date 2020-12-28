@@ -324,13 +324,13 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                                packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
                 if (packet->playerId == playerId)
                 {
-                    ClientPawn->SetVelocity(packet->velocity.asFVector());
+                    ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        pair->second->SetVelocity(packet->velocity.asFVector());
+                        pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                     } else
                     {
                         SPACEMMA_WARN("Unable to adjust velocity of {} ({}). Player not found!", packet->playerId, playerId);
@@ -377,14 +377,14 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet->playerId == playerId)
                 {
                     ClientPawn->SetActorRotation(packet->rotator.asFRotator());
-                    ClientPawn->SetVelocity(packet->velocity.asFVector());
+                    ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
                         pair->second->SetActorRotation(packet->rotator.asFRotator());
-                        pair->second->SetVelocity(packet->velocity.asFVector());
+                        pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                     } else
                     {
                         valid = false;

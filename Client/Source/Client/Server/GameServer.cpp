@@ -382,12 +382,12 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
             B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("B2B_UpdateVelocity: {}, [{},{},{}]",
+                SPACEMMA_DEBUG("B2B_UpdateVelocity: {}, [{},{},{}]",
                                packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
                 const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
                 if (pair != players.end())
                 {
-                    pair->second->SetVelocity(packet->velocity.asFVector());
+                    pair->second->GetCharacterMovement()->Velocity = (packet->velocity.asFVector());
                 } else
                 {
                     SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
@@ -546,7 +546,7 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
     if (pair != players.end())
     {
         sendPacketToAll(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
-                           pair->second->GetActorRotation(), pair->second->GetVelocity() });
+                           pair->second->GetActorRotation(), pair->second->GetCharacterMovement()->Velocity });
     } else
     {
         SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
@@ -564,7 +564,7 @@ void AGameServer::broadcastMovingPlayers()
             FRotator rotation = playerPair->second->GetActorRotation();
             bool recentlyMoved = pair.second;
             bool currentlyMoved =
-                !playerPair->second->GetVelocity().IsNearlyZero() ||
+                !playerPair->second->GetCharacterMovement()->Velocity.IsNearlyZero() ||
                 //!playerPair->second->GetRotationVector().IsNearlyZero() ||
                 location != recentPositions[pair.first] ||
                 rotation != recentRotations[pair.first];
