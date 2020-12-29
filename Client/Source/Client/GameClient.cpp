@@ -283,7 +283,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 }
                 if (valid)
                 {
-                    //todo: initialize position for interpolation
+                    recentPosData.emplace(packet->playerId, RecentPosData{ locVec, locVec, FVector::ZeroVector, FVector::ZeroVector, 0.0f });
                 }
             }
             break;
@@ -372,29 +372,33 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                                packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
                                packet->velocity.x, packet->velocity.y, packet->velocity.z);
-                FVector locVec{ packet->location.asFVector() };
-                bool valid = true;
                 if (packet->playerId == playerId)
                 {
-                    ClientPawn->SetActorRotation(packet->rotator.asFRotator());
-                    ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                    //ClientPawn->SetActorRotation(packet->rotator.asFRotator());
+                    //ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                    auto& posDelta = recentPosData[playerId];
+                    posDelta.prevPos = ClientPawn->GetActorLocation();
+                    posDelta.nextPos = packet->location.asFVector();
+                    posDelta.prevVelocity = ClientPawn->GetCharacterMovement()->Velocity;
+                    posDelta.nextVelocity = packet->velocity.asFVector();
+                    posDelta.timePassed = 0.0f;
                 } else
                 {
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
                         pair->second->SetActorRotation(packet->rotator.asFRotator());
-                        pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                        //pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                        auto& posDelta = recentPosData[packet->playerId];
+                        posDelta.prevPos = pair->second->GetActorLocation();
+                        posDelta.nextPos = packet->location.asFVector();
+                        posDelta.prevVelocity = pair->second->GetCharacterMovement()->Velocity;
+                        posDelta.nextVelocity = packet->velocity.asFVector();
+                        posDelta.timePassed = 0.0f;
                     } else
                     {
-                        valid = false;
                         SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
                     }
-                }
-                if (valid)
-                {
-                    // todo: interpolate position etc
-                    (packet->playerId == playerId ? ClientPawn : otherPlayers[packet->playerId])->SetActorLocation(locVec);
                 }
             }
             break;
@@ -495,12 +499,40 @@ void AGameClient::processPendingPacket()
     }
 }
 
+void AGameClient::interpolateMovement(float deltaTime)
+{
+    for (std::map<unsigned short, RecentPosData>::value_type& pair : recentPosData)
+    {
+        AShooterPlayer* player = pair.first == playerId ? ClientPawn : nullptr;
+        if (!player)
+        {
+            const std::map<unsigned short, AShooterPlayer*>::iterator pair1 = otherPlayers.find(pair.first);
+            if (pair1 != otherPlayers.end())
+            {
+                player = pair1->second;
+            }
+        }
+        if (player)
+        {
+            pair.second.timePassed += deltaTime;
+            FVector targetPosition = (pair.second.nextPos - pair.second.prevPos) * pair.second.timePassed * InterpolationStrength + pair.second.prevPos;
+            FVector targetVelocity = (pair.second.nextVelocity - pair.second.prevVelocity) * pair.second.timePassed * InterpolationStrength + pair.second.prevVelocity;
+            player->SetActorLocation(targetPosition * InterpolationSharpness + player->GetActorLocation() * (1.0f - InterpolationSharpness));
+            player->GetCharacterMovement()->Velocity = targetVelocity * InterpolationSharpness + player->GetCharacterMovement()->Velocity * (1.0f - InterpolationSharpness);
+        } else
+        {
+            SPACEMMA_WARN("Player {} not found for movement interpolation!", pair.first);
+        }
+    }
+}
+
 void AGameClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     if (isConnected())
     {
         processPendingPacket();
+        interpolateMovement(DeltaTime);
     }
 }
 

@@ -190,6 +190,8 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
         }
         if (currentBuff)
         {
+            // Sleep below simulates lag
+            //Sleep(100);
             bool sent = srv->tcpServer->sendTo(currentBuff, port);
             //SPACEMMA_DEBUG("Sent packet {} to {}!", *reinterpret_cast<uint8_t*>(currentBuff->getPointer()), port);
             srv->bufferPool->freeBuffer(currentBuff);
