@@ -5,6 +5,7 @@
 #include "Client/Server/TCPMultiClientServer.h"
 #include "Client/Server/Thread.h"
 #include "Client/ShooterPlayer.h"
+#include "Engine/World.h"
 #include <map>
 #include <set>
 #include "GameServer.generated.h"

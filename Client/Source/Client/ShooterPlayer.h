@@ -26,6 +26,8 @@ public:
         void DetachRope(bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         float GetRopeCooldown();
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void Shoot(FVector position, FRotator rotator, float distance);
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;

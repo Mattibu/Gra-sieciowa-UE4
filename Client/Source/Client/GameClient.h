@@ -53,7 +53,7 @@ protected:
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool closeConnection();
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
-        void shoot();
+        void shoot(FVector shootingPosition);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void attachRope(FVector attachPosition);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)

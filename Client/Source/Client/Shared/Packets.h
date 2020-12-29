@@ -17,7 +17,8 @@ namespace spacemma
         S2C_HProvidePlayerId,
         S2C_HCreatePlayer,
         S2C_HDestroyPlayer,
-        B2B_HShoot,
+        C2S_HShoot,
+        S2C_HShoot,
         B2B_HUpdateVelocity,
         B2B_HRotate,
         S2C_HPlayerMovement,
@@ -98,12 +99,24 @@ namespace spacemma
     };
 
     /**
-     * S2C: inform players about another player shooting
-     * C2S: shooting attempt (might verify the location/rotation, not neccessary)
+     * inform players about another player shooting
      */
-    struct B2B_Shoot
+    struct S2C_Shoot
     {
-        uint8_t header{ B2B_HShoot };
+        uint8_t header{ S2C_HShoot };
+        uint8_t padding{};
+        uint16_t playerId{};
+        uint16_t distance{};
+        NetVector location;
+        NetRotator rotator;
+    };
+
+    /**
+     * shooting attempt (might verify the location/rotation, not neccessary)
+     */
+    struct C2S_Shoot
+    {
+        uint8_t header{ C2S_HShoot };
         uint8_t padding{};
         uint16_t playerId{};
         NetVector location;

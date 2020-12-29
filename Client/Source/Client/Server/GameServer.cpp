@@ -368,14 +368,34 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
     Header header = static_cast<Header>(*buffer->getPointer());
     switch (header)
     {
-        case B2B_HShoot:
+        case C2S_HShoot:
         {
-            B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
+            C2S_Shoot* packet = reinterpretPacket<C2S_Shoot>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
+                SPACEMMA_DEBUG("C2S_Shoot: {}, [{},{},{}], [{},{},{}]",
                                packet->playerId, packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                uint16_t shootDistance = 10000;
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
+                if (pair != players.end())
+                {
+                    FHitResult hitResult;
+                    FVector startLocation = packet->location.asFVector();
+                    
+                    if (GetWorld()->LineTraceSingleByChannel(hitResult, startLocation,
+                        startLocation + pair->second->GetActorForwardVector() * shootDistance,
+                        ECollisionChannel::ECC_Visibility))
+                    {
+                        shootDistance = hitResult.Distance;
+                    }
+                }
+                else
+                {
+                    SPACEMMA_WARN("Failed to shoot for {}. Player not found!", packet->playerId);
+                }
+                sendPacketToAllBut(S2C_Shoot{ S2C_HShoot, {}, packet->playerId, shootDistance, packet->location, packet->rotator }, sourceClient);
+
             }
             break;
         }

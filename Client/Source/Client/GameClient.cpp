@@ -113,11 +113,11 @@ bool AGameClient::closeConnection()
     return false;
 }
 
-void AGameClient::shoot()
+void AGameClient::shoot(FVector shootingPosition)
 {
     if (isConnectedAndIdentified())
     {
-        sendPacket(B2B_Shoot{ B2B_HShoot, {}, playerId, ClientPawn->GetActorLocation(), ClientPawn->GetActorRotation() });
+        sendPacket(C2S_Shoot{ C2S_HShoot, {}, playerId, shootingPosition, ClientPawn->GetActorRotation() });
     }
 }
 
@@ -304,14 +304,28 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             }
             break;
         }
-        case B2B_HShoot:
+        case S2C_HShoot:
         {
-            B2B_Shoot* packet = reinterpretPacket<B2B_Shoot>(buffer);
+            S2C_Shoot* packet = reinterpretPacket<S2C_Shoot>(buffer);
             if (packet)
             {
-                SPACEMMA_TRACE("B2B_Shoot: {}, [{},{},{}], [{},{},{}]",
-                               packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                SPACEMMA_DEBUG("S2C_Shoot: {}, {}, [{},{},{}], [{},{},{}]",
+                               packet->playerId, packet->distance, packet->location.x, packet->location.y, packet->location.z,
                                packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                if (packet->playerId == playerId)
+                {
+                    break;
+                }
+                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                if (pair != otherPlayers.end())
+                {
+                    pair->second->Shoot(packet->location.asFVector(), packet->rotator.asFRotator(), packet->distance);
+                    pair->second->SetActorRotation(packet->rotator.asFRotator());
+                }
+                else
+                {
+                    SPACEMMA_WARN("Unable to create shoot effect for {} ({}). Player not found!", packet->playerId, playerId);
+                }
             }
             break;
         }
