@@ -306,6 +306,12 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 {
                     SPACEMMA_DEBUG("S2C_DestroyPlayer: {}", packet->playerId);
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    const std::map<unsigned short, RecentPosData>::iterator pair1 = recentPosData.
+                        find(packet->playerId);
+                    if (pair1 != recentPosData.end())
+                    {
+                        recentPosData.erase(pair1);
+                    }
                     if (pair != otherPlayers.end())
                     {
                         SPACEMMA_DEBUG("Destroying player {} ({})...", packet->playerId, playerId);
