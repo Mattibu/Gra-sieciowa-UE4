@@ -200,9 +200,23 @@ namespace spacemma
         if (packet->getUsedSize() != sizeof(T))
         {
             SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
-                         *packet->getPointer(), sizeof(T), packet->getUsedSize());
+                           *packet->getPointer(), sizeof(T), packet->getUsedSize());
             return nullptr;
         }
         return reinterpret_cast<T*>(packet->getPointer());
+    }
+
+    template<typename T>
+    T* reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos)
+    {
+        if ((buff.size() - pointerPos) < sizeof(T))
+        {
+            SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}!",
+                           buff.data(), sizeof(T), buff.size() - pointerPos, buff.size(), pointerPos);
+            return nullptr;
+        }
+        size_t currPos = pointerPos;
+        pointerPos += sizeof(T);
+        return reinterpret_cast<T*>(buff.data() + currPos);
     }
 }

@@ -232,267 +232,303 @@ void AGameClient::send(gsl::not_null<ByteBuffer*> packet)
 
 void AGameClient::processPacket(ByteBuffer* buffer)
 {
-    Header header = static_cast<Header>(*buffer->getPointer());
-    switch (header)
+    gsl::span<uint8_t> span = buffer->getSpan();
+    size_t buffPos = 0;
+    bool dataValid = true;
+    do
     {
-        case S2C_HProvidePlayerId:
+        Header header = static_cast<Header>(span[buffPos]);
+        switch (header)
         {
-            S2C_ProvidePlayerId* packet = reinterpretPacket<S2C_ProvidePlayerId>(buffer);
-            if (packet)
+            case S2C_HProvidePlayerId:
             {
-                SPACEMMA_DEBUG("S2C_ProvidePlayerId: {}", packet->playerId);
-                this->playerId = packet->playerId;
-            }
-            break;
-        }
-        case S2C_HCreatePlayer:
-        {
-            S2C_CreatePlayer* packet = reinterpretPacket<S2C_CreatePlayer>(buffer);
-            if (packet)
-            {
-                SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
-                               packet->location.x, packet->location.y, packet->location.z,
-                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                bool valid = true;
-                FVector locVec{ packet->location.asFVector() };
-                if (packet->playerId == playerId)
+                S2C_ProvidePlayerId* packet = reinterpretPacket<S2C_ProvidePlayerId>(span, buffPos);
+                if (packet)
                 {
-                    SPACEMMA_DEBUG("Adjusting self-position of {} (S2C_CreatePlayer)...", playerId);
-                    ClientPawn->SetActorLocation(locVec);
-                    ClientPawn->SetActorRotation(packet->rotator.asFRotator());
-                } else if (otherPlayers.find(packet->playerId) != otherPlayers.end())
-                {
-                    valid = false;
-                    SPACEMMA_ERROR("Attempted to spawn player {} which is already up!", packet->playerId);
+                    SPACEMMA_DEBUG("S2C_ProvidePlayerId: {}", packet->playerId);
+                    this->playerId = packet->playerId;
                 } else
                 {
-                    SPACEMMA_DEBUG("Spawning player {} ({})...", packet->playerId, playerId);
-                    FActorSpawnParameters params{};
-                    params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(packet->playerId)));
-                    params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-                    AShooterPlayer* actor =
-                        GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, locVec, packet->rotator.asFRotator(), params);
-                    if (actor == nullptr)
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HCreatePlayer:
+            {
+                S2C_CreatePlayer* packet = reinterpretPacket<S2C_CreatePlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}]", packet->playerId,
+                                   packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    bool valid = true;
+                    FVector locVec{ packet->location.asFVector() };
+                    if (packet->playerId == playerId)
+                    {
+                        SPACEMMA_DEBUG("Adjusting self-position of {} (S2C_CreatePlayer)...", playerId);
+                        ClientPawn->SetActorLocation(locVec);
+                        ClientPawn->SetActorRotation(packet->rotator.asFRotator());
+                    } else if (otherPlayers.find(packet->playerId) != otherPlayers.end())
                     {
                         valid = false;
-                        SPACEMMA_ERROR("Failed to create player {}!", packet->playerId);
+                        SPACEMMA_ERROR("Attempted to spawn player {} which is already up!", packet->playerId);
                     } else
                     {
-                        otherPlayers.emplace(packet->playerId, actor);
+                        SPACEMMA_DEBUG("Spawning player {} ({})...", packet->playerId, playerId);
+                        FActorSpawnParameters params{};
+                        params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(packet->playerId)));
+                        params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+                        AShooterPlayer* actor =
+                            GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, locVec, packet->rotator.asFRotator(), params);
+                        if (actor == nullptr)
+                        {
+                            valid = false;
+                            SPACEMMA_ERROR("Failed to create player {}!", packet->playerId);
+                        } else
+                        {
+                            otherPlayers.emplace(packet->playerId, actor);
+                        }
                     }
-                }
-                if (valid)
-                {
-                    recentPosData.emplace(packet->playerId, RecentPosData{ locVec, locVec, FVector::ZeroVector, FVector::ZeroVector, 0.0f });
-                }
-            }
-            break;
-        }
-        case S2C_HDestroyPlayer:
-        {
-            S2C_DestroyPlayer* packet = reinterpretPacket<S2C_DestroyPlayer>(buffer);
-            if (packet)
-            {
-                SPACEMMA_DEBUG("S2C_DestroyPlayer: {}", packet->playerId);
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
-                {
-                    SPACEMMA_DEBUG("Destroying player {} ({})...", packet->playerId, playerId);
-                    pair->second->Destroy();
-                    otherPlayers.erase(pair);
-                }
-            }
-            break;
-        }
-        case S2C_HShoot:
-        {
-            S2C_Shoot* packet = reinterpretPacket<S2C_Shoot>(buffer);
-            if (packet)
-            {
-                SPACEMMA_DEBUG("S2C_Shoot: {}, {}, [{},{},{}], [{},{},{}]",
-                               packet->playerId, packet->distance, packet->location.x, packet->location.y, packet->location.z,
-                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                if (packet->playerId == playerId)
-                {
-                    break;
-                }
-                const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                if (pair != otherPlayers.end())
-                {
-                    pair->second->Shoot(packet->location.asFVector(), packet->rotator.asFRotator(), packet->distance);
-                    pair->second->SetActorRotation(packet->rotator.asFRotator());
-                }
-                else
-                {
-                    SPACEMMA_WARN("Unable to create shoot effect for {} ({}). Player not found!", packet->playerId, playerId);
-                }
-            }
-            break;
-        }
-        case B2B_HUpdateVelocity:
-        {
-            B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_UpdateVelocity: {}, [{},{},{}]",
-                               packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
-                if (packet->playerId == playerId)
-                {
-                    ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                    if (valid)
+                    {
+                        recentPosData.emplace(packet->playerId, RecentPosData{ locVec, locVec, FVector::ZeroVector, FVector::ZeroVector, 0.0f });
+                    }
                 } else
                 {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HDestroyPlayer:
+            {
+                S2C_DestroyPlayer* packet = reinterpretPacket<S2C_DestroyPlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_DestroyPlayer: {}", packet->playerId);
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
-                        pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
-                    } else
-                    {
-                        SPACEMMA_WARN("Unable to adjust velocity of {} ({}). Player not found!", packet->playerId, playerId);
+                        SPACEMMA_DEBUG("Destroying player {} ({})...", packet->playerId, playerId);
+                        pair->second->Destroy();
+                        otherPlayers.erase(pair);
                     }
-                }
-            }
-            break;
-        }
-        case B2B_HRotate:
-        {
-            B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                if (packet->playerId == playerId)
-                {
-                    ClientPawn->SetActorRotation(packet->rotator.asFRotator());
                 } else
                 {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HShoot:
+            {
+                S2C_Shoot* packet = reinterpretPacket<S2C_Shoot>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_Shoot: {}, {}, [{},{},{}], [{},{},{}]",
+                                   packet->playerId, packet->distance, packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    if (packet->playerId == playerId)
+                    {
+                        break;
+                    }
                     const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                     if (pair != otherPlayers.end())
                     {
+                        pair->second->Shoot(packet->location.asFVector(), packet->rotator.asFRotator(), packet->distance);
                         pair->second->SetActorRotation(packet->rotator.asFRotator());
                     } else
                     {
-                        SPACEMMA_WARN("Unable to adjust rotation vector of {} ({}). Player not found!", packet->playerId, playerId);
+                        SPACEMMA_WARN("Unable to create shoot effect for {} ({}). Player not found!", packet->playerId, playerId);
                     }
-                }
-            }
-            break;
-        }
-        case S2C_HPlayerMovement:
-        {
-            S2C_PlayerMovement* packet = reinterpretPacket<S2C_PlayerMovement>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], [{},{},{}]", packet->playerId,
-                               packet->location.x, packet->location.y, packet->location.z,
-                               packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
-                               packet->velocity.x, packet->velocity.y, packet->velocity.z);
-                if (packet->playerId == playerId)
-                {
-                    //ClientPawn->SetActorRotation(packet->rotator.asFRotator());
-                    //ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
-                    auto& posDelta = recentPosData[playerId];
-                    posDelta.prevPos = ClientPawn->GetActorLocation();
-                    posDelta.nextPos = packet->location.asFVector();
-                    posDelta.prevVelocity = ClientPawn->GetCharacterMovement()->Velocity;
-                    posDelta.nextVelocity = packet->velocity.asFVector();
-                    posDelta.timePassed = 0.0f;
                 } else
                 {
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                    if (pair != otherPlayers.end())
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HUpdateVelocity:
+            {
+                B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_UpdateVelocity: {}, [{},{},{}]",
+                                   packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
+                    if (packet->playerId == playerId)
                     {
-                        pair->second->SetActorRotation(packet->rotator.asFRotator());
-                        //pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
-                        auto& posDelta = recentPosData[packet->playerId];
-                        posDelta.prevPos = pair->second->GetActorLocation();
+                        ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                    } else
+                    {
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to adjust velocity of {} ({}). Player not found!", packet->playerId, playerId);
+                        }
+                    }
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRotate:
+            {
+                B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    if (packet->playerId == playerId)
+                    {
+                        ClientPawn->SetActorRotation(packet->rotator.asFRotator());
+                    } else
+                    {
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->SetActorRotation(packet->rotator.asFRotator());
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to adjust rotation vector of {} ({}). Player not found!", packet->playerId, playerId);
+                        }
+                    }
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HPlayerMovement:
+            {
+                S2C_PlayerMovement* packet = reinterpretPacket<S2C_PlayerMovement>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("S2C_PlayerMovement: {}, [{},{},{}], [{},{},{}], [{},{},{}]", packet->playerId,
+                                   packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll,
+                                   packet->velocity.x, packet->velocity.y, packet->velocity.z);
+                    if (packet->playerId == playerId)
+                    {
+                        //ClientPawn->SetActorRotation(packet->rotator.asFRotator());
+                        //ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                        auto& posDelta = recentPosData[playerId];
+                        posDelta.prevPos = ClientPawn->GetActorLocation();
                         posDelta.nextPos = packet->location.asFVector();
-                        posDelta.prevVelocity = pair->second->GetCharacterMovement()->Velocity;
+                        posDelta.prevVelocity = ClientPawn->GetCharacterMovement()->Velocity;
                         posDelta.nextVelocity = packet->velocity.asFVector();
                         posDelta.timePassed = 0.0f;
                     } else
                     {
-                        SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->SetActorRotation(packet->rotator.asFRotator());
+                            //pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                            auto& posDelta = recentPosData[packet->playerId];
+                            posDelta.prevPos = pair->second->GetActorLocation();
+                            posDelta.nextPos = packet->location.asFVector();
+                            posDelta.prevVelocity = pair->second->GetCharacterMovement()->Velocity;
+                            posDelta.nextVelocity = packet->velocity.asFVector();
+                            posDelta.timePassed = 0.0f;
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
+                        }
                     }
-                }
-            }
-            break;
-        }
-        case B2B_HRopeAttach:
-        {
-            B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
-                               packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
-                if (packet->playerId == playerId)
-                {
-                    ClientPawn->AttachRope(packet->attachPosition.asFVector(), false);
                 } else
                 {
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                    if (pair != otherPlayers.end())
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRopeAttach:
+            {
+                B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                                   packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                    if (packet->playerId == playerId)
                     {
-                        pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                        ClientPawn->AttachRope(packet->attachPosition.asFVector(), false);
                     } else
                     {
-                        SPACEMMA_WARN("Unable to attach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to attach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                        }
                     }
-                }
-            }
-            break;
-        }
-        case S2C_HRopeFailed:
-        {
-            S2C_RopeFailed* packet = reinterpretPacket<S2C_RopeFailed>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("S2C_RopeFailed: {}, {}", packet->playerId, packet->ropeCooldown);
-                if (packet->playerId == playerId)
-                {
-                    ClientPawn->SetRopeCooldown(packet->ropeCooldown, false);
                 } else
                 {
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                    if (pair != otherPlayers.end())
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HRopeFailed:
+            {
+                S2C_RopeFailed* packet = reinterpretPacket<S2C_RopeFailed>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("S2C_RopeFailed: {}, {}", packet->playerId, packet->ropeCooldown);
+                    if (packet->playerId == playerId)
                     {
-                        pair->second->SetRopeCooldown(packet->ropeCooldown, false);
+                        ClientPawn->SetRopeCooldown(packet->ropeCooldown, false);
                     } else
                     {
-                        SPACEMMA_WARN("Unable to update rope cooldown for player {} ({}). Player not found!", packet->playerId, playerId);
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->SetRopeCooldown(packet->ropeCooldown, false);
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to update rope cooldown for player {} ({}). Player not found!", packet->playerId, playerId);
+                        }
                     }
-                }
-            }
-            break;
-        }
-        case B2B_HRopeDetach:
-        {
-            B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(buffer);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
-                if (packet->playerId == playerId)
-                {
-                    ClientPawn->DetachRope(false);
                 } else
                 {
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
-                    if (pair != otherPlayers.end())
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRopeDetach:
+            {
+                B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
+                    if (packet->playerId == playerId)
                     {
-                        pair->second->DetachRope(false);
+                        ClientPawn->DetachRope(false);
                     } else
                     {
-                        SPACEMMA_WARN("Unable to detach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                        const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                        if (pair != otherPlayers.end())
+                        {
+                            pair->second->DetachRope(false);
+                        } else
+                        {
+                            SPACEMMA_WARN("Unable to detach rope for player {} ({}). Player not found!", packet->playerId, playerId);
+                        }
                     }
+                } else
+                {
+                    dataValid = false;
                 }
+                break;
             }
-            break;
+            default:
+            {
+                SPACEMMA_ERROR("Received invalid packet header of {}! Discarding packet.", header);
+                dataValid = false;
+                break;
+            }
         }
-        default:
-        {
-            SPACEMMA_ERROR("Received invalid packet header of {}! Discarding packet.", header);
-            break;
-        }
-    }
+    } while (dataValid && buffPos < span.size());
 }
 
 void AGameClient::processPendingPacket()
