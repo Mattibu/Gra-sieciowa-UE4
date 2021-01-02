@@ -393,6 +393,25 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                                                                  ECC_Visibility))
                         {
                             shootDistance = hitResult.Distance;
+                            if (hitResult.Actor.IsValid())
+                            {
+                                FString name = hitResult.Actor->GetName();
+                                SPACEMMA_DEBUG("Shooted object name: {}" + std::string(TCHAR_TO_UTF8(*name)));
+                                for (auto player : players)
+                                {
+                                    if (player.second->GetName() == hitResult.Actor->GetName() && packet->playerId != player.first)
+                                    {
+                                        //TODO:change chardcoded damage value;
+                                        uint16_t damage = 20;
+                                        sendPacketTo(player.first, S2C_Damage{ S2C_HDamage, {}, player.first, 20 });
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                SPACEMMA_DEBUG("Shooted nothing!");
+                            }
                         }
                     } else
                     {

@@ -28,6 +28,10 @@ public:
         float GetRopeCooldown();
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void Shoot(FVector position, FRotator rotator, float distance);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void ReceiveDamage(float damage);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void InitiateClientPlayer();
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;

@@ -17,6 +17,7 @@ namespace spacemma
         S2C_HProvidePlayerId,
         S2C_HCreatePlayer,
         S2C_HDestroyPlayer,
+        S2C_HDamage,
         C2S_HShoot,
         S2C_HShoot,
         B2B_HUpdateVelocity,
@@ -96,6 +97,17 @@ namespace spacemma
         uint8_t header{ S2C_HDestroyPlayer };
         uint8_t padding{};
         uint16_t playerId{};
+    };
+
+    /**
+     * Inform player about getting damage
+     */
+    struct S2C_Damage
+    {
+        uint8_t header{ S2C_HDamage };
+        uint8_t padding{};
+        uint16_t playerId{};
+        uint16_t damage{};
     };
 
     /**

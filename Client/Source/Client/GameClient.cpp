@@ -286,6 +286,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                             SPACEMMA_ERROR("Failed to create player {}!", packet->playerId);
                         } else
                         {
+                            actor->InitiateClientPlayer();
                             otherPlayers.emplace(packet->playerId, actor);
                         }
                     }
@@ -319,6 +320,25 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         otherPlayers.erase(pair);
                     }
                 } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HDamage:
+            {
+                S2C_Damage* packet = reinterpretPacket<S2C_Damage>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_Damage: {}, {}",
+                        packet->playerId, packet->damage);
+                    if (packet->playerId == playerId)
+                    {
+                        ClientPawn->ReceiveDamage(packet->damage);
+                        break;
+                    }
+                }
+                else
                 {
                     dataValid = false;
                 }
