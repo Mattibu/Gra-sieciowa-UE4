@@ -25,7 +25,9 @@ namespace spacemma
         S2C_HPlayerMovement,
         B2B_HRopeAttach,
         S2C_HRopeFailed,
-        B2B_HRopeDetach
+        B2B_HRopeDetach,
+        B2B_HDeadPlayer,
+        B2B_HRespawnPlayer
     };
 
     struct NetVector2D final
@@ -204,6 +206,30 @@ namespace spacemma
         uint8_t header{ B2B_HRopeDetach };
         uint8_t padding{};
         uint16_t playerId{};
+    };
+
+    /**
+     * S2C: inform about a player who was dead
+     * C2S: inform about dying
+     */
+    struct B2B_DeadPlayer final
+    {
+        uint8_t header{ B2B_HDeadPlayer };
+        uint8_t padding{};
+        uint16_t playerId{};
+    };
+
+    /**
+     * S2C: inform about a player who has respawned
+     * C2S: inform about respawn
+     */
+    struct B2B_RespawnPlayer final
+    {
+        uint8_t header{ B2B_HRespawnPlayer };
+        uint8_t padding{};
+        uint16_t playerId{};
+        NetVector location;
+        NetRotator rotator;
     };
 
     template<typename T>

@@ -62,6 +62,10 @@ protected:
         void updateVelocity(FVector velocity);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void updateRotation();
+    UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
+        void dead();
+    UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
+        void respawn(FVector position, FRotator rotator);
 private:
     static void threadConnect(gsl::not_null<spacemma::Thread*> thread, void* client);
     static void threadReceive(gsl::not_null<spacemma::Thread*> thread, void* client);
