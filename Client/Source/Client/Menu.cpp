@@ -17,3 +17,13 @@ bool UMenu::IsPortValid(FString trimmedPort)
     int32 port = FCString::Atoi(*trimmedPort);
     return port >= 1024 && port <= 49151;
 }
+
+void UMenu::StartServer(FString trimmedIp, FString trimmedPort, FString map)
+{
+
+}
+
+void UMenu::StartClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort, FString map)
+{
+
+}
