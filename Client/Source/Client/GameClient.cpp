@@ -153,6 +153,23 @@ void AGameClient::updateRotation()
     }
 }
 
+void AGameClient::dead()
+{
+    if (isConnectedAndIdentified())
+    {
+        sendPacket(B2B_DeadPlayer{ B2B_HDeadPlayer, {}, playerId });
+    }
+}
+
+void AGameClient::respawn(FVector position, FRotator rotator)
+{
+    if (isConnectedAndIdentified())
+    {
+        sendPacket(B2B_RespawnPlayer{ B2B_HRespawnPlayer, {}, playerId, position, rotator });
+    }
+}
+
+
 void AGameClient::threadConnect(gsl::not_null<Thread*> thread, void* client)
 {
     AGameClient* clt = reinterpret_cast<AGameClient*>(client);
@@ -542,6 +559,61 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         }
                     }
                 } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HDeadPlayer:
+            {
+                B2B_DeadPlayer* packet = reinterpretPacket<B2B_DeadPlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("B2B_DeadPlayer: {}",
+                        packet->playerId);
+                    if (packet->playerId == playerId)
+                    {
+                        break;
+                    }
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        pair->second->DeadPlayer();
+                    }
+                    else
+                    {
+                        SPACEMMA_WARN("Unable to dead {} ({}). Player not found!", packet->playerId, playerId);
+                    }
+                }
+                else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRespawnPlayer:
+            {
+                B2B_RespawnPlayer* packet = reinterpretPacket<B2B_RespawnPlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("B2B_RespawnPlayer: {}",
+                        packet->playerId);
+                    if (packet->playerId == playerId)
+                    {
+                        break;
+                    }
+                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
+                    if (pair != otherPlayers.end())
+                    {
+                        recentPosData[packet->playerId] = RecentPosData{ packet->location.asFVector(), packet->location.asFVector(), FVector::ZeroVector, FVector::ZeroVector, 0.0f };
+                        pair->second->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
+                    }
+                    else
+                    {
+                        SPACEMMA_WARN("Unable to respawn {} ({}). Player not found!", packet->playerId, playerId);
+                    }
+                }
+                else
                 {
                     dataValid = false;
                 }

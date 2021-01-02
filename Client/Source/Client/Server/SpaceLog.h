@@ -79,10 +79,10 @@ namespace spacemma
         SpaceLog() = delete;
         static spdlog::logger* getLogger();
     private:
-        static std::shared_ptr<spdlog::logger> logger;
-        static const std::string SPACEMMA_LOG_NAME;
-        static const std::string SPACEMMA_LOG_FILENAME;
-        static const size_t SPACEMMA_LOG_FILE_SIZE;
-        static const size_t SPACEMMA_LOG_MAX_FILES;
+        inline static std::shared_ptr<spdlog::logger> logger{};
+        inline static const std::string SPACEMMA_LOG_NAME{ "SpaceMMA" };
+        inline static const std::string SPACEMMA_LOG_FILENAME{ "spacemma.log" };
+        inline static const size_t SPACEMMA_LOG_FILE_SIZE{ 8'388'608ULL };
+        inline static const size_t SPACEMMA_LOG_MAX_FILES{ 3ULL };
     };
 }

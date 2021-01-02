@@ -32,6 +32,10 @@ public:
         void ReceiveDamage(float damage);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void InitiateClientPlayer();
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void DeadPlayer();
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void RespawnPlayer(FVector position, FRotator rotator);
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
