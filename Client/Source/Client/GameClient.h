@@ -24,14 +24,29 @@ class CLIENT_API AGameClient : public AActor
 
 public:
     AGameClient();
+    /**
+    * Virtual method which is called once per game loop to update object state.
+    */
     virtual void Tick(float DeltaTime) override;
 protected:
+    /**
+    * Virtual method which is called once on start.
+    */
     virtual void BeginPlay() override;
+    /**
+    * Virtual method which is called once on end.
+    */
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Data)
         AShooterPlayer* ClientPawn;
+    /**
+    * The ip of a server to which player will try to connect to.
+    */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         FString ServerIpAddress = "127.0.0.1";
+    /**
+    * The port of a server to which player will try to connect to.
+    */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         int32 ServerPort = 4444;
     UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
@@ -40,30 +55,76 @@ protected:
         float InterpolationStrength = 1.0f;
     UPROPERTY(EditDefaultsOnly, Category = Movement_Parameters)
         float InterpolationSharpness = 0.1f;
+    /**
+    * Attempt to connect to the server.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool startConnecting();
+    /**
+    * Checks if client is trying to establish connection to the server.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool isConnecting();
+    /**
+    * Checks if client is connected to the server.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool isConnected();
+    /**
+    * Checks if client has valid id.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool isIdentified() const;
+    /**
+    * Checks if client has valid id and is connected.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool isConnectedAndIdentified();
+    /**
+    * Closes the connection to the server.
+    */
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool closeConnection();
+    /**
+    * If client is connected and identified sends packet to the server.
+    * Information about shoot.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void shoot(FVector shootingPosition);
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about attachment of the rope.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void attachRope(FVector attachPosition);
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about detachment of the rope.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void detachRope();
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about player's velocity.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void updateVelocity(FVector velocity);
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about player's rotation.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void updateRotation();
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about player's death.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void dead();
+    /**
+    * If client is connected and identified sends the packet to the server.
+    * Information about player's respawn.
+    */
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void respawn(FVector position, FRotator rotator);
 private:
