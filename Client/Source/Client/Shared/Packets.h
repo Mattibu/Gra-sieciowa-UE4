@@ -5,31 +5,6 @@
 
 namespace spacemma
 {
-    /// <summary>
-    /// Possible values of packet headers.
-    /// S - server
-    /// C - client
-    /// B - both
-    /// For each header there should exist a matching struct.
-    /// </summary>
-    enum Header : uint8_t
-    {
-        S2C_HProvidePlayerId,
-        S2C_HCreatePlayer,
-        S2C_HDestroyPlayer,
-        S2C_HDamage,
-        C2S_HShoot,
-        S2C_HShoot,
-        B2B_HUpdateVelocity,
-        B2B_HRotate,
-        S2C_HPlayerMovement,
-        B2B_HRopeAttach,
-        S2C_HRopeFailed,
-        B2B_HRopeDetach,
-        B2B_HDeadPlayer,
-        B2B_HRespawnPlayer
-    };
-
     struct NetVector2D final
     {
         FVector2D asFVector2D() const
@@ -68,193 +43,221 @@ namespace spacemma
         float roll;
     };
 
-    /**
-     * Sent to every player after creating a connection.
-     * Tells the player what his/her ID is.
-     */
-    struct S2C_ProvidePlayerId
-    {
-        uint8_t header{ S2C_HProvidePlayerId };
-        uint8_t padding{};
-        uint16_t playerId{};
-    };
+    namespace packets {
 
-    /**
-     * Inform about player spawn
-     */
-    struct S2C_CreatePlayer
-    {
-        uint8_t header{ S2C_HCreatePlayer };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector location;
-        NetRotator rotator;
-    };
-
-    /**
-     * Inform about player destruction
-     */
-    struct S2C_DestroyPlayer
-    {
-        uint8_t header{ S2C_HDestroyPlayer };
-        uint8_t padding{};
-        uint16_t playerId{};
-    };
-
-    /**
-     * Inform player about getting damage
-     */
-    struct S2C_Damage
-    {
-        uint8_t header{ S2C_HDamage };
-        uint8_t padding{};
-        uint16_t playerId{};
-        uint16_t damage{};
-    };
-
-    /**
-     * inform players about another player shooting
-     */
-    struct S2C_Shoot
-    {
-        uint8_t header{ S2C_HShoot };
-        uint8_t padding{};
-        uint16_t playerId{};
-        uint16_t distance{};
-        NetVector location;
-        NetRotator rotator;
-    };
-
-    /**
-     * shooting attempt (might verify the location/rotation, not neccessary)
-     */
-    struct C2S_Shoot
-    {
-        uint8_t header{ C2S_HShoot };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector location;
-        NetRotator rotator;
-    };
-
-    /**
-     * S2C: inform players about another player's velocity update
-     * C2S: velocity change attempt (verify the velocity)
-     */
-    struct B2B_UpdateVelocity final
-    {
-        uint8_t header{ B2B_HUpdateVelocity };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector velocity;
-    };
-
-    /**
-     * S2C: inform players about another player's rotation
-     * C2S: rotation attempt
-     */
-    struct B2B_Rotate final
-    {
-        uint8_t header{ B2B_HRotate };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetRotator rotator;
-    };
-
-    /**
-     * Informs about player location, rotation and speed
-     */
-    struct S2C_PlayerMovement final
-    {
-        uint8_t header{ S2C_HPlayerMovement };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector location;
-        NetRotator rotator;
-        NetVector velocity;
-    };
-
-    /**
-     * S2C: inform about a player who attached a rope
-     * C2S: rope attach attempt (may fail)
-     */
-    struct B2B_RopeAttach final
-    {
-        uint8_t header{ B2B_HRopeAttach };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector attachPosition;
-    };
-
-    /**
-     * Failed to attach the rope - either too far or on cooldown
-     */
-    struct S2C_RopeFailed final
-    {
-        uint8_t header{ S2C_HRopeFailed };
-        uint8_t padding{};
-        uint16_t playerId{};
-        float ropeCooldown; // let's the client know if the cooldown was incorrect
-    };
-
-    /**
-     * S2C: inform about a player who detached a rope
-     * C2S: rope detach attempt
-     */
-    struct B2B_RopeDetach final
-    {
-        uint8_t header{ B2B_HRopeDetach };
-        uint8_t padding{};
-        uint16_t playerId{};
-    };
-
-    /**
-     * S2C: inform about a player who was dead
-     * C2S: inform about dying
-     */
-    struct B2B_DeadPlayer final
-    {
-        uint8_t header{ B2B_HDeadPlayer };
-        uint8_t padding{};
-        uint16_t playerId{};
-    };
-
-    /**
-     * S2C: inform about a player who has respawned
-     * C2S: inform about respawn
-     */
-    struct B2B_RespawnPlayer final
-    {
-        uint8_t header{ B2B_HRespawnPlayer };
-        uint8_t padding{};
-        uint16_t playerId{};
-        NetVector location;
-        NetRotator rotator;
-    };
-
-    template<typename T>
-    T* reinterpretPacket(gsl::not_null<ByteBuffer*> packet)
-    {
-        if (packet->getUsedSize() != sizeof(T))
+        /// <summary>
+        /// Possible values of packet headers.
+        /// S - server
+        /// C - client
+        /// B - both
+        /// For each header there should exist a matching struct.
+        /// </summary>
+        enum Header : uint8_t
         {
-            SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
-                           *packet->getPointer(), sizeof(T), packet->getUsedSize());
-            return nullptr;
-        }
-        return reinterpret_cast<T*>(packet->getPointer());
-    }
+            S2C_HProvidePlayerId,
+            S2C_HCreatePlayer,
+            S2C_HDestroyPlayer,
+            S2C_HDamage,
+            C2S_HShoot,
+            S2C_HShoot,
+            B2B_HUpdateVelocity,
+            B2B_HRotate,
+            S2C_HPlayerMovement,
+            B2B_HRopeAttach,
+            S2C_HRopeFailed,
+            B2B_HRopeDetach,
+            B2B_HDeadPlayer,
+            B2B_HRespawnPlayer
+        };
 
-    template<typename T>
-    T* reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos)
-    {
-        if ((buff.size() - pointerPos) < sizeof(T))
+        /**
+         * Sent to every player after creating a connection.
+         * Tells the player what his/her ID is.
+         */
+        struct S2C_ProvidePlayerId
         {
-            SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}!",
-                           buff.data(), sizeof(T), buff.size() - pointerPos, buff.size(), pointerPos);
-            return nullptr;
+            uint8_t header{ S2C_HProvidePlayerId };
+            uint8_t padding{};
+            uint16_t playerId{};
+        };
+
+        /**
+         * Inform about player spawn
+         */
+        struct S2C_CreatePlayer
+        {
+            uint8_t header{ S2C_HCreatePlayer };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector location;
+            NetRotator rotator;
+        };
+
+        /**
+         * Inform about player destruction
+         */
+        struct S2C_DestroyPlayer
+        {
+            uint8_t header{ S2C_HDestroyPlayer };
+            uint8_t padding{};
+            uint16_t playerId{};
+        };
+
+        /**
+         * Inform player about getting damage
+         */
+        struct S2C_Damage
+        {
+            uint8_t header{ S2C_HDamage };
+            uint8_t padding{};
+            uint16_t playerId{};
+            uint16_t damage{};
+        };
+
+        /**
+         * inform players about another player shooting
+         */
+        struct S2C_Shoot
+        {
+            uint8_t header{ S2C_HShoot };
+            uint8_t padding{};
+            uint16_t playerId{};
+            uint16_t distance{};
+            NetVector location;
+            NetRotator rotator;
+        };
+
+        /**
+         * shooting attempt (might verify the location/rotation, not neccessary)
+         */
+        struct C2S_Shoot
+        {
+            uint8_t header{ C2S_HShoot };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector location;
+            NetRotator rotator;
+        };
+
+        /**
+         * S2C: inform players about another player's velocity update
+         * C2S: velocity change attempt (verify the velocity)
+         */
+        struct B2B_UpdateVelocity final
+        {
+            uint8_t header{ B2B_HUpdateVelocity };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector velocity;
+        };
+
+        /**
+         * S2C: inform players about another player's rotation
+         * C2S: rotation attempt
+         */
+        struct B2B_Rotate final
+        {
+            uint8_t header{ B2B_HRotate };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetRotator rotator;
+        };
+
+        /**
+         * Informs about player location, rotation and speed
+         */
+        struct S2C_PlayerMovement final
+        {
+            uint8_t header{ S2C_HPlayerMovement };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector location;
+            NetRotator rotator;
+            NetVector velocity;
+        };
+
+        /**
+         * S2C: inform about a player who attached a rope
+         * C2S: rope attach attempt (may fail)
+         */
+        struct B2B_RopeAttach final
+        {
+            uint8_t header{ B2B_HRopeAttach };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector attachPosition;
+        };
+
+        /**
+         * Failed to attach the rope - either too far or on cooldown
+         */
+        struct S2C_RopeFailed final
+        {
+            uint8_t header{ S2C_HRopeFailed };
+            uint8_t padding{};
+            uint16_t playerId{};
+            float ropeCooldown; // let's the client know if the cooldown was incorrect
+        };
+
+        /**
+         * S2C: inform about a player who detached a rope
+         * C2S: rope detach attempt
+         */
+        struct B2B_RopeDetach final
+        {
+            uint8_t header{ B2B_HRopeDetach };
+            uint8_t padding{};
+            uint16_t playerId{};
+        };
+
+        /**
+         * S2C: inform about a player who was dead
+         * C2S: inform about dying
+         */
+        struct B2B_DeadPlayer final
+        {
+            uint8_t header{ B2B_HDeadPlayer };
+            uint8_t padding{};
+            uint16_t playerId{};
+        };
+
+        /**
+         * S2C: inform about a player who has respawned
+         * C2S: inform about respawn
+         */
+        struct B2B_RespawnPlayer final
+        {
+            uint8_t header{ B2B_HRespawnPlayer };
+            uint8_t padding{};
+            uint16_t playerId{};
+            NetVector location;
+            NetRotator rotator;
+        };
+
+        template<typename T>
+        T* reinterpretPacket(gsl::not_null<ByteBuffer*> packet)
+        {
+            if (packet->getUsedSize() != sizeof(T))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
+                    *packet->getPointer(), sizeof(T), packet->getUsedSize());
+                return nullptr;
+            }
+            return reinterpret_cast<T*>(packet->getPointer());
         }
-        size_t currPos = pointerPos;
-        pointerPos += sizeof(T);
-        return reinterpret_cast<T*>(buff.data() + currPos);
-    }
-}
+
+        template<typename T>
+        T* reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos)
+        {
+            if ((buff.size() - pointerPos) < sizeof(T))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}!",
+                    buff.data(), sizeof(T), buff.size() - pointerPos, buff.size(), pointerPos);
+                return nullptr;
+            }
+            size_t currPos = pointerPos;
+            pointerPos += sizeof(T);
+            return reinterpret_cast<T*>(buff.data() + currPos);
+        }
+    }//namespace: packets
+}//namespace: spacemma

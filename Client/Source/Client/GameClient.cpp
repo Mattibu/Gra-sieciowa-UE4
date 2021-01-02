@@ -6,6 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 
 using namespace spacemma;
+using namespace spacemma::packets;
 
 AGameClient::AGameClient()
 {
