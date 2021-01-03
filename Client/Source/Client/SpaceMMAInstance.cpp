@@ -1,5 +1,6 @@
 #include "SpaceMMAInstance.h"
 #include "Client/Server/SpaceLog.h"
+#include "Kismet/GameplayStatics.h"
 
 void USpaceMMAInstance::Initialize()
 {
@@ -19,6 +20,8 @@ void USpaceMMAInstance::Initialize()
             client->ServerPort = ServerPort;
             client->ClientPawn = player;
             client->startConnecting();
+            APlayerController* playerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+            playerController->Possess(player);
         }
         break;
         case LevelInitialization::Server:
