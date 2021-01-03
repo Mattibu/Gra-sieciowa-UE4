@@ -454,6 +454,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     if (packet->playerId == playerId)
                     {
                         //ClientPawn->SetActorRotation(packet->rotator.asFRotator());
+                        ClientPawn->SetActorLocation(packet->location.asFVector());
                         ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                         //auto& posDelta = recentPosData[playerId];
                         //posDelta.prevPos = ClientPawn->GetActorLocation();
@@ -467,6 +468,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         if (pair != otherPlayers.end())
                         {
                             pair->second->SetActorRotation(packet->rotator.asFRotator());
+                            pair->second->SetActorLocation(packet->location.asFVector());
                             pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
                             //auto& posDelta = recentPosData[packet->playerId];
                             //posDelta.prevPos = pair->second->GetActorLocation();
