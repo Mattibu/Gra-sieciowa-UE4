@@ -349,14 +349,13 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet)
                 {
                     SPACEMMA_DEBUG("S2C_Damage: {}, {}",
-                        packet->playerId, packet->damage);
+                                   packet->playerId, packet->damage);
                     if (packet->playerId == playerId)
                     {
                         ClientPawn->ReceiveDamage(packet->damage);
                         break;
                     }
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -455,26 +454,26 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     if (packet->playerId == playerId)
                     {
                         //ClientPawn->SetActorRotation(packet->rotator.asFRotator());
-                        //ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
-                        auto& posDelta = recentPosData[playerId];
-                        posDelta.prevPos = ClientPawn->GetActorLocation();
-                        posDelta.nextPos = packet->location.asFVector();
-                        posDelta.prevVelocity = ClientPawn->GetCharacterMovement()->Velocity;
-                        posDelta.nextVelocity = packet->velocity.asFVector();
-                        posDelta.timePassed = 0.0f;
+                        ClientPawn->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                        //auto& posDelta = recentPosData[playerId];
+                        //posDelta.prevPos = ClientPawn->GetActorLocation();
+                        //posDelta.nextPos = packet->location.asFVector();
+                        //posDelta.prevVelocity = ClientPawn->GetCharacterMovement()->Velocity;
+                        //posDelta.nextVelocity = packet->velocity.asFVector();
+                        //posDelta.timePassed = 0.0f;
                     } else
                     {
                         const std::map<unsigned short, AShooterPlayer*>::iterator pair = otherPlayers.find(packet->playerId);
                         if (pair != otherPlayers.end())
                         {
                             pair->second->SetActorRotation(packet->rotator.asFRotator());
-                            //pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
-                            auto& posDelta = recentPosData[packet->playerId];
-                            posDelta.prevPos = pair->second->GetActorLocation();
-                            posDelta.nextPos = packet->location.asFVector();
-                            posDelta.prevVelocity = pair->second->GetCharacterMovement()->Velocity;
-                            posDelta.nextVelocity = packet->velocity.asFVector();
-                            posDelta.timePassed = 0.0f;
+                            pair->second->GetCharacterMovement()->Velocity = packet->velocity.asFVector();
+                            //auto& posDelta = recentPosData[packet->playerId];
+                            //posDelta.prevPos = pair->second->GetActorLocation();
+                            //posDelta.nextPos = packet->location.asFVector();
+                            //posDelta.prevVelocity = pair->second->GetCharacterMovement()->Velocity;
+                            //posDelta.nextVelocity = packet->velocity.asFVector();
+                            //posDelta.timePassed = 0.0f;
                         } else
                         {
                             SPACEMMA_WARN("Unable to update movement of {} ({}). Player not found!", packet->playerId, playerId);
@@ -571,7 +570,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet)
                 {
                     SPACEMMA_DEBUG("B2B_DeadPlayer: {}",
-                        packet->playerId);
+                                   packet->playerId);
                     if (packet->playerId == playerId)
                     {
                         break;
@@ -580,13 +579,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     if (pair != otherPlayers.end())
                     {
                         pair->second->DeadPlayer();
-                    }
-                    else
+                    } else
                     {
                         SPACEMMA_WARN("Unable to dead {} ({}). Player not found!", packet->playerId, playerId);
                     }
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -607,13 +604,11 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     {
                         recentPosData[packet->playerId] = RecentPosData{ packet->location.asFVector(), packet->location.asFVector(), FVector::ZeroVector, FVector::ZeroVector, 0.0f };
                         pair->second->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
-                    }
-                    else
+                    } else
                     {
                         SPACEMMA_WARN("Unable to respawn {} ({}). Player not found!", packet->playerId, playerId);
                     }
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -680,7 +675,7 @@ void AGameClient::Tick(float DeltaTime)
     if (isConnected())
     {
         processPendingPacket();
-        interpolateMovement(DeltaTime);
+        //interpolateMovement(DeltaTime);
     }
 }
 
