@@ -720,7 +720,7 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
 
 void AGameServer::broadcastMovingPlayers()
 {
-    std::lock_guard lock(liveClientsMutex);
+    //std::lock_guard lock(liveClientsMutex);
     for (unsigned short port : liveClients)
     {
         GameClientData& playerData = gameClientData[port];
@@ -744,7 +744,7 @@ void AGameServer::broadcastMovingPlayers()
 
 bool AGameServer::isClientLive(unsigned short client)
 {
-    std::lock_guard lock(liveClientsMutex);
+    //std::lock_guard lock(liveClientsMutex);
     return liveClients.find(client) != liveClients.end();
 }
 
