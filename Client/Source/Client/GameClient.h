@@ -25,21 +25,12 @@ class CLIENT_API AGameClient : public AActor
 public:
     AGameClient();
     virtual void Tick(float DeltaTime) override;
-protected:
-    virtual void BeginPlay() override;
-    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Data)
         AShooterPlayer* ClientPawn;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
         int32 ServerPort = 4444;
-    UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
-        TSubclassOf<AActor> PlayerBP;
-    UPROPERTY(EditDefaultsOnly, Category = Movement_Parameters)
-        float InterpolationStrength = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = Movement_Parameters)
-        float InterpolationSharpness = 0.1f;
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool startConnecting();
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
@@ -52,6 +43,15 @@ protected:
         bool isConnectedAndIdentified();
     UFUNCTION(BlueprintCallable, Category = Connection_Management)
         bool closeConnection();
+protected:
+    virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
+        TSubclassOf<AActor> PlayerBP;
+    UPROPERTY(EditDefaultsOnly, Category = Movement_Parameters)
+        float InterpolationStrength = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = Movement_Parameters)
+        float InterpolationSharpness = 0.1f;
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)
         void shoot(FVector shootingPosition);
     UFUNCTION(BlueprintCallable, Category = Send_Net_Packet)

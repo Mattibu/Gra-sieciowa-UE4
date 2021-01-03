@@ -596,8 +596,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 B2B_RespawnPlayer* packet = reinterpretPacket<B2B_RespawnPlayer>(span, buffPos);
                 if (packet)
                 {
-                    SPACEMMA_DEBUG("B2B_RespawnPlayer: {}",
-                        packet->playerId);
+                    SPACEMMA_DEBUG("B2B_RespawnPlayer: {}", packet->playerId);
                     if (packet->playerId == playerId)
                     {
                         break;

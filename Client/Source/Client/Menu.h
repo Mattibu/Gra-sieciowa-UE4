@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Client/Server/GameServer.h"
+#include "Client/GameClient.h"
 #include "Menu.generated.h"
 
 UCLASS()

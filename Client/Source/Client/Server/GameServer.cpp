@@ -263,7 +263,7 @@ void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short
     }
 }
 
-void AGameServer::sendToAllBut(gsl::not_null<spacemma::ByteBuffer*> buffer, unsigned short ignoredClient1, unsigned short ignoredClient2)
+void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short ignoredClient1, unsigned short ignoredClient2)
 {
     std::lock_guard lock(connectionMutex);
     for (const auto& pair : perClientSendBuffers)

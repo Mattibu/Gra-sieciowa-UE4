@@ -1,6 +1,8 @@
 #include "Menu.h"
 
 #include <WS2tcpip.h>
+#include "Kismet/GameplayStatics.h"
+#include "Client/SpaceMMAInstance.h"
 
 bool UMenu::IsIpValid(FString trimmedIp)
 {
@@ -20,10 +22,20 @@ bool UMenu::IsPortValid(FString trimmedPort)
 
 void UMenu::StartServer(FString trimmedIp, FString trimmedPort, FString map)
 {
-
+    USpaceMMAInstance* instance = reinterpret_cast<USpaceMMAInstance*>(GetGameInstance());
+    instance->Initialization = USpaceMMAInstance::LevelInitialization::Server;
+    instance->ServerIpAddress = trimmedIp;
+    instance->ServerPort = FCString::Atoi(*trimmedPort);
+    instance->MaxClients = 8;
+    UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }
 
 void UMenu::StartClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort, FString map)
 {
-
+    USpaceMMAInstance* instance = reinterpret_cast<USpaceMMAInstance*>(GetGameInstance());
+    instance->Initialization = USpaceMMAInstance::LevelInitialization::Client;
+    instance->ServerIpAddress = trimmedIp;
+    instance->ServerPort = FCString::Atoi(*trimmedPort);
+    instance->Nickname = trimmedNickname;
+    UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }

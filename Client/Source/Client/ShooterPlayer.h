@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "ShooterPlayer.generated.h"
 
+class AGameClient;
 UCLASS()
 class CLIENT_API AShooterPlayer : public ACharacter
 {
@@ -16,6 +17,8 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+    UFUNCTION(BlueprintImplementableEvent, Category = WebClient)
+        void SetGameClient(AGameClient* gameClient);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void AttachRope(FVector position, bool broadcast);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
