@@ -104,6 +104,21 @@ unsigned short spacemma::WinTCPMultiClientServer::acceptClient()
             SPACEMMA_ERROR("Failed to accept a client connection ({})!", WSAGetLastError());
             return 0;
         }
+        const int TIMEOUT = TCP_SOCKET_TIMEOUT;
+        //if (int ret = setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO,
+        //                         reinterpret_cast<const char*>(&TIMEOUT), sizeof(TIMEOUT)); ret == SOCKET_ERROR)
+        //{
+        //    SPACEMMA_ERROR("Failed to set client receive timeout ({})!", WSAGetLastError());
+        //    closesocket(clientSocket);
+        //    return 0;
+        //}
+        if (int ret = setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO,
+                                 reinterpret_cast<const char*>(&TIMEOUT), sizeof(TIMEOUT)); ret == SOCKET_ERROR)
+        {
+            SPACEMMA_ERROR("Failed to set client send timeout ({})!", WSAGetLastError());
+            closesocket(clientSocket);
+            return 0;
+        }
         sockaddr_in addr;
         int addrSize{ sizeof(addr) };
         if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&addr), &addrSize) == SOCKET_ERROR)
@@ -172,13 +187,20 @@ bool spacemma::WinTCPMultiClientServer::send(gsl::not_null<ByteBuffer*> buff)
             if (::send(clientData[i].socket, reinterpret_cast<char*>(buff->getPointer()), static_cast<int>(buff->getUsedSize()),
                        0) == SOCKET_ERROR)
             {
-                if (int error = WSAGetLastError(); error == WSAECONNRESET)
+                const int error = WSAGetLastError();
+                switch (error)
                 {
-                    SPACEMMA_WARN("Failed to send {} data to client at port {}! Connection reset by peer.", buff->getUsedSize(), clientData[i].port);
-                    clientData[i].isConnected = false;
-                } else
-                {
-                    SPACEMMA_ERROR("Failed to send {} data ({}) to client at port {}!", buff->getUsedSize(), error, clientData[i].port);
+                    case WSAECONNRESET:
+                        SPACEMMA_ERROR("Failed to send {} data to client at port {}! Connection reset by peer.", buff->getUsedSize(), clientData[i].port);
+                        clientData[i].isConnected = false;
+                        break;
+                    case WSAETIMEDOUT:
+                        SPACEMMA_ERROR("Failed to send {} data to client at port {}! Connection timed out.", buff->getUsedSize(), clientData[i].port);
+                        clientData[i].isConnected = false;
+                        break;
+                    default:
+                        SPACEMMA_ERROR("Failed to send {} data ({}) to client at port {}!", buff->getUsedSize(), error, clientData[i].port);
+                        break;
                 }
             } else
             {
@@ -197,14 +219,21 @@ bool spacemma::WinTCPMultiClientServer::sendTo(gsl::not_null<ByteBuffer*> buff, 
         if (::send(data->socket, reinterpret_cast<char*>(buff->getPointer()), static_cast<int>(buff->getUsedSize()),
                    0) == SOCKET_ERROR)
         {
-            if (int error = WSAGetLastError(); error == WSAECONNRESET)
+
+            const int error = WSAGetLastError();
+            switch (error)
             {
-                SPACEMMA_WARN("Failed to send {} data to client at port {}! Connection reset by peer.",
-                              buff->getUsedSize(), port);
-                data->isConnected = false;
-            } else
-            {
-                SPACEMMA_ERROR("Failed to send {} data ({}) to client at port {}!", buff->getUsedSize(), error, port);
+                case WSAECONNRESET:
+                    SPACEMMA_ERROR("Failed to send {} data to client at port {}! Connection reset by peer.", buff->getUsedSize(), port);
+                    data->isConnected = false;
+                    break;
+                case WSAETIMEDOUT:
+                    SPACEMMA_ERROR("Failed to send {} data to client at port {}! Connection timed out.", buff->getUsedSize(), port);
+                    data->isConnected = false;
+                    break;
+                default:
+                    SPACEMMA_ERROR("Failed to send {} data ({}) to client at port {}!", buff->getUsedSize(), error, port);
+                    break;
             }
             return false;
         }
@@ -230,13 +259,20 @@ spacemma::ByteBuffer* spacemma::WinTCPMultiClientServer::receiveFrom(unsigned sh
         }
         if (received == SOCKET_ERROR)
         {
-            if (int error = WSAGetLastError(); error == WSAECONNRESET)
+            const int error = WSAGetLastError();
+            switch (error)
             {
-                SPACEMMA_WARN("Failed to receive data from client at port {}! Connection reset by peer.", port);
-                data->isConnected = false;
-            } else
-            {
-                SPACEMMA_ERROR("Failed to receive data ({}) from client at port {}!", error, port);
+                case WSAECONNRESET:
+                    SPACEMMA_ERROR("Failed to receive data from client at port {}! Connection reset by peer.", port);
+                    data->isConnected = false;
+                    break;
+                case WSAETIMEDOUT:
+                    SPACEMMA_ERROR("Failed to receive data from client at port {}! Connection timed out.", port);
+                    data->isConnected = false;
+                    break;
+                default:
+                    SPACEMMA_ERROR("Failed to receive data ({}) from client at port {}!", error, port);
+                    break;
             }
             return nullptr;
         }

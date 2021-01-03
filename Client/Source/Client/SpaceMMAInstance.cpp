@@ -21,6 +21,7 @@ void USpaceMMAInstance::Initialize()
             client->ServerIpAddress = ServerIpAddress;
             client->ServerPort = ServerPort;
             client->ClientPawn = player;
+            client->Nickname = Nickname;
             client->startConnecting();
             APlayerController* playerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
             APawn* defaultPawn = playerController->GetPawn();
@@ -49,4 +50,9 @@ void USpaceMMAInstance::Initialize()
             break;
     }
     Initialization = LevelInitialization::None;
+}
+
+void USpaceMMAInstance::GoToMenu()
+{
+    UGameplayStatics::OpenLevel(GetWorld(), FName{ "Menu" });
 }

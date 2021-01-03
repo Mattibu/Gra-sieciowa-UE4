@@ -3,6 +3,7 @@
 #include "BufferPool.h"
 
 #define TCP_SOCKET_BUFFER_SIZE 16384
+#define TCP_SOCKET_TIMEOUT 5000
 
 namespace spacemma
 {

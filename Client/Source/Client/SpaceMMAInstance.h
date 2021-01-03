@@ -27,6 +27,8 @@ public:
         TSubclassOf<AShooterPlayer> PlayerBP;
     UFUNCTION(BlueprintCallable, Category = Initialization)
         void Initialize();
+    UFUNCTION(BlueprintCallable, Category = Menu)
+        void GoToMenu();
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Universal_Parameters)
         FString ServerIpAddress = "127.0.0.1";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Universal_Parameters)

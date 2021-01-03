@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include <cstdint>
+#include "Client/Server/SpaceLog.h"
 
 namespace spacemma
 {
@@ -43,15 +44,16 @@ namespace spacemma
         float roll;
     };
 
-    namespace packets {
+    namespace packets
+    {
 
-        /// <summary>
-        /// Possible values of packet headers.
-        /// S - server
-        /// C - client
-        /// B - both
-        /// For each header there should exist a matching struct.
-        /// </summary>
+/// <summary>
+/// Possible values of packet headers.
+/// S - server
+/// C - client
+/// B - both
+/// For each header there should exist a matching struct.
+/// </summary>
         enum Header : uint8_t
         {
             S2C_HProvidePlayerId,
@@ -67,7 +69,11 @@ namespace spacemma
             S2C_HRopeFailed,
             B2B_HRopeDetach,
             B2B_HDeadPlayer,
-            B2B_HRespawnPlayer
+            B2B_HRespawnPlayer,
+            S2C_HInvalidNickname,
+            S2C_HInvalidMap,
+            S2C_HInvalidData,
+            C2S_HInitConnection
         };
 
         /**
@@ -87,10 +93,11 @@ namespace spacemma
         struct S2C_CreatePlayer
         {
             uint8_t header{ S2C_HCreatePlayer };
-            uint8_t padding{};
+            uint8_t nicknameLength{};
             uint16_t playerId{};
-            NetVector location;
-            NetRotator rotator;
+            NetVector location{};
+            NetRotator rotator{};
+            std::string nickname{};
         };
 
         /**
@@ -234,13 +241,210 @@ namespace spacemma
             NetRotator rotator;
         };
 
+        /**
+         * Sent before disconnecting client to inform that the reason is an invalid nickname.
+         */
+        struct S2C_InvalidNickname final
+        {
+            uint8_t header{ S2C_HInvalidNickname };
+        };
+
+        /**
+         * Sent before disconnecting client to inform that the reason is an invalid map.
+         */
+        struct S2C_InvalidMap final
+        {
+            uint8_t header{ S2C_HInvalidMap };
+        };
+
+        /**
+         * Sent before disconnecting client to inform that the reason is having provided invalid data.
+         */
+        struct S2C_InvalidData final
+        {
+            uint8_t header{ S2C_HInvalidData };
+        };
+
+        /**
+         * Initialization packet providing player's nickname and map.
+         * If the packet or its data is invalid, the server will immediately close connection.
+         */
+        struct C2S_InitConnection final
+        {
+            uint8_t header{ C2S_HInitConnection };
+            uint8_t mapNameLength{};
+            uint8_t nicknameLength{};
+            uint8_t padding{};
+            std::string mapName{};
+            std::string nickname{};
+        };
+
+        inline ByteBuffer* createPacketBuffer(gsl::not_null<BufferPool*> bufferPool, S2C_CreatePlayer& packetStruct)
+        {
+            if (packetStruct.nickname.length() > UINT8_MAX)
+            {
+                SPACEMMA_ERROR("Unable to create S2C_CreatePlayer packet buffer: nickname too long ({} < {})!",
+                               UINT8_MAX, packetStruct.nickname.length());
+                return nullptr;
+            }
+            packetStruct.nicknameLength = packetStruct.nickname.length();
+            ByteBuffer* buffer = bufferPool->getBuffer(offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength);
+            memcpy(buffer->getPointer(), &packetStruct, offsetof(S2C_CreatePlayer, nickname));
+            memcpy(buffer->getPointer() + offsetof(S2C_CreatePlayer, nickname), packetStruct.nickname.c_str(), packetStruct.nicknameLength);
+            return buffer;
+        }
+
+        inline ByteBuffer* createPacketBuffer(gsl::not_null<BufferPool*> bufferPool, C2S_InitConnection& packetStruct)
+        {
+            if (packetStruct.mapName.length() > UINT8_MAX)
+            {
+                SPACEMMA_ERROR("Unable to create C2S_InitConnection packet buffer: map name too long ({} < {})!",
+                               UINT8_MAX, packetStruct.mapName.length());
+                return nullptr;
+            }
+            if (packetStruct.nickname.length() > UINT8_MAX)
+            {
+                SPACEMMA_ERROR("Unable to create C2S_InitConnection packet buffer: nickname too long ({} < {})!",
+                               UINT8_MAX, packetStruct.nickname.length());
+                return nullptr;
+            }
+            packetStruct.mapNameLength = packetStruct.mapName.length();
+            packetStruct.nicknameLength = packetStruct.nickname.length();
+            ByteBuffer* buffer = bufferPool->getBuffer(offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength);
+            memcpy(buffer->getPointer(), &packetStruct, offsetof(C2S_InitConnection, mapName));
+            memcpy(buffer->getPointer() + offsetof(C2S_InitConnection, mapName), packetStruct.mapName.c_str(), packetStruct.mapNameLength);
+            memcpy(buffer->getPointer() + offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength, packetStruct.nickname.c_str(), packetStruct.nicknameLength);
+            return buffer;
+        }
+
+        inline bool reinterpretPacket(gsl::not_null<ByteBuffer*> packet, S2C_CreatePlayer& packetStruct)
+        {
+            if (packet->getUsedSize() < offsetof(S2C_CreatePlayer, nickname))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {})!",
+                               *packet->getPointer(), offsetof(S2C_CreatePlayer, nickname), packet->getUsedSize());
+                return false;
+            }
+            memcpy(&packetStruct, packet->getPointer(), offsetof(S2C_CreatePlayer, nickname));
+            if (packet->getUsedSize() != offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {})! Expected nickname of {} characters!",
+                               *packet->getPointer(), offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength,
+                               packet->getUsedSize(), packetStruct.nicknameLength);
+                return false;
+            }
+            packetStruct.nickname.clear();
+            if (packetStruct.nicknameLength > 0)
+            {
+                packetStruct.nickname.append(
+                    reinterpret_cast<char*>(packet->getPointer() + offsetof(S2C_CreatePlayer, nickname)),
+                    packetStruct.nicknameLength);
+            }
+            return true;
+        }
+
+        inline bool reinterpretPacket(gsl::not_null<ByteBuffer*> packet, C2S_InitConnection& packetStruct)
+        {
+            if (packet->getUsedSize() < offsetof(C2S_InitConnection, mapName))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {})!",
+                               *packet->getPointer(), offsetof(C2S_InitConnection, mapName), packet->getUsedSize());
+                return false;
+            }
+            memcpy(&packetStruct, packet->getPointer(), offsetof(C2S_InitConnection, mapName));
+            if (packet->getUsedSize() != offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {})! Expected map name of {} characters and nickname of {} characters!",
+                               *packet->getPointer(), offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength,
+                               packet->getUsedSize(), packetStruct.mapNameLength, packetStruct.nicknameLength);
+                return false;
+            }
+            packetStruct.mapName.clear();
+            if (packetStruct.mapNameLength > 0)
+            {
+                packetStruct.mapName.append(
+                    reinterpret_cast<char*>(packet->getPointer() + offsetof(C2S_InitConnection, mapName)),
+                    packetStruct.mapNameLength);
+            }
+            packetStruct.nickname.clear();
+            if (packetStruct.nicknameLength > 0)
+            {
+                packetStruct.nickname.append(
+                    reinterpret_cast<char*>(packet->getPointer() + offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength),
+                    packetStruct.nicknameLength);
+            }
+            return true;
+        }
+
+        inline bool reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos, S2C_CreatePlayer& packetStruct)
+        {
+            if ((buff.size() - pointerPos) < offsetof(S2C_CreatePlayer, nickname))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {}) | Size: {}, Pos: {}!",
+                               buff[pointerPos], offsetof(S2C_CreatePlayer, nickname), buff.size() - pointerPos, buff.size(), pointerPos);
+                return false;
+            }
+            memcpy(&packetStruct, buff.data() + pointerPos, offsetof(S2C_CreatePlayer, nickname));
+            if (buff.size() < offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {}) | Size: {}, Pos: {}! Expected nickname of {} characters!",
+                               buff[pointerPos], offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength,
+                               buff.size() - pointerPos, buff.size(), pointerPos, packetStruct.nicknameLength);
+                return false;
+            }
+            packetStruct.nickname.clear();
+            if (packetStruct.nicknameLength > 0)
+            {
+                packetStruct.nickname.append(
+                    reinterpret_cast<char*>(buff.data() + pointerPos + offsetof(S2C_CreatePlayer, nickname)),
+                    packetStruct.nicknameLength);
+            }
+            pointerPos += offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength;
+            return true;
+        }
+
+        inline bool reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos, C2S_InitConnection& packetStruct)
+        {
+            if ((buff.size() - pointerPos) < offsetof(C2S_InitConnection, mapName))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {}) | Size: {}, Pos: {}!",
+                               buff[pointerPos], offsetof(C2S_InitConnection, mapName), buff.size() - pointerPos, buff.size(), pointerPos);
+                return false;
+            }
+            memcpy(&packetStruct, buff.data() + pointerPos, offsetof(C2S_InitConnection, mapName));
+            if ((buff.size() - pointerPos) != offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}! Expected map name of {} characters and nickname of {} characters!",
+                               buff[pointerPos], offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength,
+                               buff.size() - pointerPos, buff.size(), pointerPos, packetStruct.mapNameLength, packetStruct.nicknameLength);
+                return false;
+            }
+            packetStruct.mapName.clear();
+            if (packetStruct.mapNameLength > 0)
+            {
+                packetStruct.mapName.append(
+                    reinterpret_cast<char*>(buff.data() + pointerPos + offsetof(C2S_InitConnection, mapName)),
+                    packetStruct.mapNameLength);
+            }
+            packetStruct.nickname.clear();
+            if (packetStruct.nicknameLength > 0)
+            {
+                packetStruct.nickname.append(
+                    reinterpret_cast<char*>(buff.data() + pointerPos + offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength),
+                    packetStruct.nicknameLength);
+            }
+            pointerPos += offsetof(C2S_InitConnection, mapName) + packetStruct.mapNameLength + packetStruct.nicknameLength;
+            return true;
+        }
+
         template<typename T>
         T* reinterpretPacket(gsl::not_null<ByteBuffer*> packet)
         {
+            static_assert(!std::is_same<S2C_CreatePlayer, T>());
             if (packet->getUsedSize() != sizeof(T))
             {
                 SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
-                    *packet->getPointer(), sizeof(T), packet->getUsedSize());
+                               *packet->getPointer(), sizeof(T), packet->getUsedSize());
                 return nullptr;
             }
             return reinterpret_cast<T*>(packet->getPointer());
@@ -249,10 +453,11 @@ namespace spacemma
         template<typename T>
         T* reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos)
         {
+            static_assert(!std::is_same<S2C_CreatePlayer, T>());
             if ((buff.size() - pointerPos) < sizeof(T))
             {
                 SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}!",
-                    buff.data(), sizeof(T), buff.size() - pointerPos, buff.size(), pointerPos);
+                               buff.data(), sizeof(T), buff.size() - pointerPos, buff.size(), pointerPos);
                 return nullptr;
             }
             size_t currPos = pointerPos;

@@ -24,6 +24,7 @@ AGameServer::AGameServer()
 bool AGameServer::startServer()
 {
     std::lock_guard lock(startStopMutex);
+    mapName = StringCast<ANSICHAR>(*GetWorld()->GetName()).Get();
     movementUpdateDelta = 1.0f / static_cast<float>(MovementUpdateTickRate);
     if (tcpServer)
     {
@@ -70,41 +71,34 @@ bool AGameServer::stopServer()
         SPACEMMA_DEBUG("Joining threads...");
         acceptThread->join();
         delete acceptThread;
-        SPACEMMA_DEBUG("Closing sendThreads...");
-        for (const auto& pair : sendThreads)
+        for (const auto& pair : gameClientData)
         {
-            pair.second->interrupt();
-            pair.second->join();
-            delete pair.second;
+            SPACEMMA_DEBUG("Cleaning up player {}...");
+            SPACEMMA_DEBUG("Closing sendThread...");
+            pair.second.sendThread->interrupt();
+            pair.second.sendThread->join();
+            delete pair.second.sendThread;
+            SPACEMMA_DEBUG("Closing receiveThread...");
+            pair.second.receiveThread->interrupt();
+            pair.second.receiveThread->join();
+            delete pair.second.receiveThread;
+            SPACEMMA_DEBUG("Removing send buffers...");
+            for (ByteBuffer* buff : pair.second.sendBuffers->buffers)
+            {
+                bufferPool->freeBuffer(buff);
+            }
+            delete pair.second.sendBuffers;
         }
-        SPACEMMA_DEBUG("Closing receiveThreads...");
-        for (const auto& pair : receiveThreads)
-        {
-            pair.second->interrupt();
-            pair.second->join();
-            delete pair.second;
-        }
-        sendThreads.clear();
-        receiveThreads.clear();
         SPACEMMA_DEBUG("Removing receivedPackets...");
         for (const auto& pair : receivedPackets)
         {
             bufferPool->freeBuffer(pair.second);
         }
         receivedPackets.clear();
-        SPACEMMA_DEBUG("Removing perClientSendBuffers...");
-        for (const auto& pair : perClientSendBuffers)
-        {
-            for (ByteBuffer* buff : pair.second->buffers)
-            {
-                bufferPool->freeBuffer(buff);
-            }
-            delete pair.second;
-        }
-        perClientSendBuffers.clear();
-        recentlyMoving.clear();
-        recentPositions.clear();
-        recentRotations.clear();
+        liveClients.clear();
+        playersAwaitingSpawn.clear();
+        disconnectingPlayers.clear();
+        gameClientData.clear();
         SPACEMMA_DEBUG("Resetting tcpServer...");
         tcpServer.reset();
         SPACEMMA_DEBUG("Resetting bufferPool...");
@@ -137,32 +131,28 @@ void AGameServer::threadAcceptClients(gsl::not_null<Thread*> thread, void* serve
     SPACEMMA_DEBUG("Starting threadAcceptClients...");
     do
     {
-        if (srv->players.size() < srv->MaxClients)
+        if (srv->gameClientData.size() < srv->MaxClients)
         {
             unsigned short port = srv->tcpServer->acceptClient();
             if (port)
             {
                 SPACEMMA_INFO("Accepted client #{}!", port);
                 std::lock_guard lock(srv->connectionMutex);
-                {
-                    std::lock_guard lock1(srv->liveClientsMutex);
-                    srv->liveClients.insert(port);
-                    srv->perClientSendBuffers.insert({ port, new ClientBuffers{} });
-                    Thread
-                        * sendThread = new WinThread(),
-                        * receiveThread = new WinThread();
-                    ThreadArgs args{ srv, port, false };
-                    sendThread->run(threadSend, &args);
-                    while (!args.received);
-                    args.received = false;
-                    receiveThread->run(threadReceive, &args);
-                    while (!args.received);
-                    srv->sendThreads.emplace(port, sendThread);
-                    srv->receiveThreads.emplace(port, receiveThread);
-                }
+                GameClientData data{};
+                data.sendThread = new WinThread();
+                data.receiveThread = new WinThread();
+                data.sendBuffers = new ClientBuffers{};
+                srv->gameClientData.insert({ port, data });
+                ThreadArgs args{ srv, port, false };
+                data.sendThread->run(threadSend, &args);
+                while (!args.received);
+                args.received = false;
+                data.receiveThread->run(threadReceive, &args);
+                while (!args.received);
+                SPACEMMA_DEBUG("Providing player ID...");
                 srv->sendPacketTo(port, S2C_ProvidePlayerId{ S2C_HProvidePlayerId, {}, port });
-                std::lock_guard lock2(srv->spawnAwaitingMutex);
-                srv->playersAwaitingSpawn.insert(port);
+                std::lock_guard lock1(srv->unverifiedPlayersMutex);
+                srv->unverifiedPlayers.insert(port);
             }
         }
     } while (!thread->isInterrupted());
@@ -175,7 +165,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
     AGameServer* srv = reinterpret_cast<AGameServer*>(arg->server);
     unsigned short port = arg->port;
     arg->received = true;
-    ClientBuffers* cb = srv->perClientSendBuffers[port];
+    ClientBuffers* cb = srv->gameClientData[port].sendBuffers;
     ByteBuffer* currentBuff{ nullptr };
     SPACEMMA_DEBUG("Starting threadSend({})...", port);
     do
@@ -199,9 +189,9 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
             if (!sent && !srv->tcpServer->isConnected(port))
             {
                 SPACEMMA_ERROR("Connection to {} lost.", port);
-                if (srv->isClientAvailable(port))
+                if (srv->isClientLive(port))
                 {
-                    std::lock_guard lock(srv->disconnectMutex);
+                    std::lock_guard lock1(srv->disconnectMutex);
                     srv->disconnectingPlayers.insert(port);
                 }
                 break;
@@ -228,8 +218,11 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
         } else if (!srv->tcpServer->isConnected(port))
         {
             SPACEMMA_ERROR("Connection to {} lost.", port);
-            std::lock_guard lock(srv->disconnectMutex);
-            srv->disconnectingPlayers.insert(port);
+            if (srv->isClientLive(port))
+            {
+                std::lock_guard lock1(srv->disconnectMutex);
+                srv->disconnectingPlayers.insert(port);
+            }
             break;
         }
     } while (!thread->isInterrupted());
@@ -239,26 +232,26 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
 void AGameServer::sendToAll(gsl::not_null<ByteBuffer*> buffer)
 {
     std::lock_guard lock(connectionMutex);
-    for (const auto& pair : perClientSendBuffers)
+    for (unsigned short port : liveClients)
     {
         //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
         ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
         memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
-        sendTo(pair.first, buff);
+        sendTo(port, buff);
     }
 }
 
 void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short ignoredClient)
 {
     std::lock_guard lock(connectionMutex);
-    for (const auto& pair : perClientSendBuffers)
+    for (unsigned short port : liveClients)
     {
-        if (pair.first != ignoredClient)
+        if (port != ignoredClient)
         {
             //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
             ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
             memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
-            sendTo(pair.first, buff);
+            sendTo(port, buff);
         }
     }
 }
@@ -266,21 +259,21 @@ void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short
 void AGameServer::sendToAllBut(gsl::not_null<ByteBuffer*> buffer, unsigned short ignoredClient1, unsigned short ignoredClient2)
 {
     std::lock_guard lock(connectionMutex);
-    for (const auto& pair : perClientSendBuffers)
+    for (unsigned short port : liveClients)
     {
-        if (pair.first != ignoredClient1 && pair.first != ignoredClient2)
+        if (port != ignoredClient1 && port != ignoredClient2)
         {
             //todo: implement refcounted buffers or something like that, right now the buffer is just copied for each client
             ByteBuffer* buff = bufferPool->getBuffer(buffer->getUsedSize());
             memcpy(buff->getPointer(), buffer->getPointer(), buffer->getUsedSize());
-            sendTo(pair.first, buff);
+            sendTo(port, buff);
         }
     }
 }
 
 void AGameServer::sendTo(unsigned short client, gsl::not_null<ByteBuffer*> buffer)
 {
-    ClientBuffers* buffers = perClientSendBuffers[client];
+    ClientBuffers* buffers = gameClientData[client].sendBuffers;
     std::lock_guard lock(buffers->bufferMutex);
     buffers->buffers.push_back(buffer);
 }
@@ -297,78 +290,123 @@ void AGameServer::disconnectClient(unsigned short client)
             liveClients.erase(lcit);
         }
     }
+    const std::map<unsigned short, GameClientData>::iterator& pair = gameClientData.find(client);
+    if (pair != gameClientData.end())
     {
-        const std::map<unsigned short, Thread*>::iterator pair = receiveThreads.find(client);
-        if (pair != receiveThreads.end())
+        SPACEMMA_DEBUG("Stopping player's receiveThread...");
+        tcpServer->closeClient(client);
+        pair->second.receiveThread->interrupt();
+        pair->second.receiveThread->join();
+        delete pair->second.receiveThread;
+        SPACEMMA_DEBUG("Stopping player's sendThread...");
+        pair->second.sendThread->interrupt();
+        pair->second.sendThread->join();
+        delete pair->second.sendThread;
+        SPACEMMA_DEBUG("Removing player's send buffers...");
+        for (auto buff : pair->second.sendBuffers->buffers)
         {
-            SPACEMMA_DEBUG("Stopping player's receiveThread...");
-            pair->second->interrupt();
-            pair->second->join();
-            delete pair->second;
-            receiveThreads.erase(pair);
+            bufferPool->freeBuffer(buff);
         }
-    }
-    {
-        const std::map<unsigned short, Thread*>::iterator pair = sendThreads.find(client);
-        const std::map<unsigned short, ClientBuffers*>::iterator pair2 = perClientSendBuffers.find(client);
-        if (pair != sendThreads.end())
-        {
-            SPACEMMA_DEBUG("Stopping player's sendThread...");
-            pair->second->interrupt();
-            pair->second->join();
-            delete pair->second;
-            sendThreads.erase(pair);
-        }
-        if (pair2 != perClientSendBuffers.end())
-        {
-            SPACEMMA_DEBUG("Removing player's send buffers...");
-            for (auto buff : pair2->second->buffers)
-            {
-                bufferPool->freeBuffer(buff);
-            }
-            perClientSendBuffers.erase(pair2);
-        }
-    }
-    {
-        const auto& pair1 = recentlyMoving.find(client);
-        if (pair1 != recentlyMoving.end())
-        {
-            recentlyMoving.erase(pair1);
-        }
-        const auto& pair2 = recentPositions.find(client);
-        if (pair2 != recentPositions.end())
-        {
-            recentPositions.erase(pair2);
-        }
-        const auto& pair3 = recentRotations.find(client);
-        if (pair3 != recentRotations.end())
-        {
-            recentRotations.erase(pair3);
-        }
-    }
-    {
-        const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(client);
-        if (pair != players.end())
+        delete pair->second.sendBuffers;
+        if (pair->second.player)
         {
             SPACEMMA_DEBUG("Removing player's actor...");
-            pair->second->Destroy();
-            players.erase(pair);
-            sendPacketToAll(S2C_DestroyPlayer{ S2C_HDestroyPlayer, {}, client });
+            pair->second.player->Destroy();
         }
+        sendPacketToAll(S2C_DestroyPlayer{ S2C_HDestroyPlayer, {}, client });
     }
+    gameClientData.erase(pair);
 }
 
 void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteBuffer*> buffer)
 {
-    if (!isClientAvailable(sourceClient))
-    {
-        SPACEMMA_WARN("Rejecting packet from client {} that is no longer available.", sourceClient);
-        return;
-    }
     gsl::span<uint8_t> span = buffer->getSpan();
     size_t buffPos = 0;
     bool dataValid = true;
-    do
+    if (!isClientLive(sourceClient))
+    {
+        bool unverified;
+        {
+            std::lock_guard lock(unverifiedPlayersMutex);
+            unverified = unverifiedPlayers.find(sourceClient) != unverifiedPlayers.end();
+        }
+        if (unverified)
+        {
+            SPACEMMA_INFO("Player {} is unverified. Expecting C2S_InitConnection.");
+            Header header = static_cast<Header>(span[buffPos]);
+            if (header == C2S_HInitConnection)
+            {
+                C2S_InitConnection packet;
+                if (reinterpretPacket(span, buffPos, packet))
+                {
+                    SPACEMMA_INFO("C2S_InitConnection: '{}', '{}'", packet.mapName, packet.nickname);
+                    bool mapValid = packet.mapName == mapName, nicknameValid = true;
+                    if (mapValid)
+                    {
+
+                        for (const auto& playerData : gameClientData)
+                        {
+                            if (playerData.second.nickname == packet.nickname)
+                            {
+                                nicknameValid = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (mapValid)
+                    {
+                        if (nicknameValid)
+                        {
+                            SPACEMMA_INFO("Player {} identified with nickname '{}'!", sourceClient, packet.nickname);
+                            gameClientData[sourceClient].nickname = packet.nickname;
+                            std::lock_guard lock1(spawnAwaitingMutex);
+                            playersAwaitingSpawn.insert(sourceClient);
+                            std::lock_guard lock2(unverifiedPlayersMutex);
+                            unverifiedPlayers.erase(sourceClient);
+                        } else
+                        {
+                            SPACEMMA_WARN("Player {} provided invalid nickname '{}'. Closing connection.");
+                            ByteBuffer* buff = bufferPool->getBuffer(1);
+                            *buff->getPointer() = S2C_HInvalidNickname;
+                            tcpServer->sendTo(buff, sourceClient);
+                            bufferPool->freeBuffer(buff);
+                            std::lock_guard lock(disconnectMutex);
+                            disconnectingPlayers.insert(sourceClient);
+                            return;
+                        }
+                    } else
+                    {
+                        SPACEMMA_WARN("Player {} is playing on a different map ('{}' != '{}'). Closing connection.", sourceClient, mapName, packet.mapName);
+                        ByteBuffer* buff = bufferPool->getBuffer(1);
+                        *buff->getPointer() = S2C_HInvalidMap;
+                        tcpServer->sendTo(buff, sourceClient);
+                        bufferPool->freeBuffer(buff);
+                        std::lock_guard lock(disconnectMutex);
+                        disconnectingPlayers.insert(sourceClient);
+                        return;
+                    }
+                } else
+                {
+                    return;
+                }
+            } else
+            {
+                SPACEMMA_WARN("Player {} did not authorise. Closing connection.", sourceClient);
+                ByteBuffer* buff = bufferPool->getBuffer(1);
+                *buff->getPointer() = S2C_HInvalidData;
+                tcpServer->sendTo(buff, sourceClient);
+                bufferPool->freeBuffer(buff);
+                std::lock_guard lock(disconnectMutex);
+                disconnectingPlayers.insert(sourceClient);
+                return;
+            }
+        } else
+        {
+            SPACEMMA_WARN("Rejecting packet from client {} that is not live.", sourceClient);
+            return;
+        }
+    }
+    while (dataValid && buffPos < span.size())
     {
         Header header = static_cast<Header>(span[buffPos]);
         switch (header)
@@ -382,14 +420,14 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                                    packet->playerId, packet->location.x, packet->location.y, packet->location.z,
                                    packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
                     uint16_t shootDistance = 10000;
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
+                        GameClientData& clientData = gameClientData[packet->playerId];
                         FHitResult hitResult;
                         FVector startLocation = packet->location.asFVector();
 
                         if (GetWorld()->LineTraceSingleByChannel(hitResult, startLocation,
-                                                                 startLocation + pair->second->GetActorForwardVector() * shootDistance,
+                                                                 startLocation + clientData.player->GetActorForwardVector() * shootDistance,
                                                                  ECC_Visibility))
                         {
                             shootDistance = hitResult.Distance;
@@ -397,18 +435,21 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                             {
                                 FString name = hitResult.Actor->GetName();
                                 SPACEMMA_DEBUG("Shooted object name: {}", StringCast<ANSICHAR>(*name).Get());
-                                for (auto player : players)
+                                for (unsigned short otherPlayer : liveClients)
                                 {
-                                    if (player.second->GetName() == hitResult.Actor->GetName() && packet->playerId != player.first)
+                                    if (otherPlayer != packet->playerId)
                                     {
-                                        //TODO:change chardcoded damage value;
-                                        uint16_t damage = 20;
-                                        sendPacketTo(player.first, S2C_Damage{ S2C_HDamage, {}, player.first, 20 });
-                                        break;
+                                        GameClientData& otherPlayerData = gameClientData[otherPlayer];
+                                        if (otherPlayerData.player->GetName() == hitResult.Actor->GetName())
+                                        {
+                                            //TODO:change chardcoded damage value;
+                                            uint16_t damage = 20;
+                                            sendPacketTo(otherPlayer, S2C_Damage{ S2C_HDamage, {}, otherPlayer, 20 });
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            else
+                            } else
                             {
                                 SPACEMMA_DEBUG("Shooted nothing!");
                             }
@@ -431,10 +472,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_DEBUG("B2B_UpdateVelocity: {}, [{},{},{}]",
                                    packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->GetCharacterMovement()->Velocity = (packet->velocity.asFVector());
+                        gameClientData[packet->playerId].player->GetCharacterMovement()->Velocity = (packet->velocity.asFVector());
                     } else
                     {
                         SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
@@ -453,10 +493,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
                                    packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->SetActorRotation(packet->rotator.asFRotator());
+                        gameClientData[packet->playerId].player->SetActorRotation(packet->rotator.asFRotator());
                     } else
                     {
                         SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
@@ -475,10 +514,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 {
                     SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
                                    packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->AttachRope(packet->attachPosition.asFVector(), false);
+                        gameClientData[packet->playerId].player->AttachRope(packet->attachPosition.asFVector(), false);
                     } else
                     {
                         SPACEMMA_WARN("Failed to attach rope for {}. Player not found!", packet->playerId);
@@ -496,10 +534,9 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 if (packet)
                 {
                     SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->DetachRope(false);
+                        gameClientData[packet->playerId].player->DetachRope(false);
                     } else
                     {
                         SPACEMMA_WARN("Failed to detach rope for {}. Player not found!", packet->playerId);
@@ -517,18 +554,15 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 if (packet)
                 {
                     SPACEMMA_TRACE("B2B_DeadPlayer: {}", packet->playerId);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->DeadPlayer();
-                    }
-                    else
+                        gameClientData[packet->playerId].player->DeadPlayer();
+                    } else
                     {
                         SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
                     }
                     sendPacketToAllBut(*packet, sourceClient);
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -540,20 +574,17 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 if (packet)
                 {
                     SPACEMMA_TRACE("B2B_RespawnPlayer: {}, [{},{},{}], [{},{},{}]",
-                        packet->playerId, packet->location.x, packet->location.y, packet->location.z,
-                        packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                    const std::map<unsigned short, AShooterPlayer*>::iterator pair = players.find(packet->playerId);
-                    if (pair != players.end())
+                                   packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        pair->second->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
-                    }
-                    else
+                        gameClientData[packet->playerId].player->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
+                    } else
                     {
                         SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
                     }
                     sendPacketToAllBut(*packet, sourceClient);
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -566,7 +597,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 break;
             }
         }
-    } while (dataValid && buffPos < span.size());
+    }
 }
 
 void AGameServer::handlePlayerAwaitingSpawn()
@@ -588,19 +619,44 @@ void AGameServer::handlePlayerAwaitingSpawn()
         params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
         AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f },
                                                                        FRotator{}, params);
-
-        sendPacketToAll(S2C_CreatePlayer{ S2C_HCreatePlayer, {}, clientPort,
-                        actor->GetActorLocation(), actor->GetActorRotation() });
-        // tell the player about other players
-        for (const auto& pair : players)
+        GameClientData& playerData = gameClientData[clientPort];
+        playerData.player = actor;
+        playerData.recentPosition = actor->GetActorLocation();
+        playerData.recentRotation = actor->GetActorRotation();
+        S2C_CreatePlayer createPlayerPacket{
+            S2C_HCreatePlayer,
+            playerData.nickname.length(),
+            clientPort,
+            playerData.recentPosition,
+            playerData.recentRotation,
+            playerData.nickname
+        };
         {
-            sendPacketTo(clientPort, S2C_CreatePlayer{ S2C_HCreatePlayer, {}, pair.first,
-                             pair.second->GetActorLocation(), pair.second->GetActorRotation() });
+            std::lock_guard lock(liveClientsMutex);
+            liveClients.insert(clientPort);
         }
-        players.emplace(clientPort, actor);
-        recentPositions.emplace(clientPort, actor->GetActorLocation());
-        recentRotations.emplace(clientPort, actor->GetActorRotation());
-        recentlyMoving.emplace(clientPort, false);
+        ByteBuffer* packetBuffer = createPacketBuffer(bufferPool.get(), createPlayerPacket);
+        sendToAll(packetBuffer);
+        bufferPool->freeBuffer(packetBuffer);
+        // tell the player about other players
+        for (unsigned short port : liveClients)
+        {
+            if (port != clientPort)
+            {
+                GameClientData& otherPlayerData = gameClientData[port];
+                createPlayerPacket = {
+                    S2C_HCreatePlayer,
+                    static_cast<uint8_t>(otherPlayerData.nickname.length()),
+                    port,
+                    otherPlayerData.player->GetActorLocation(),
+                    otherPlayerData.player->GetActorRotation(),
+                    otherPlayerData.nickname
+                };
+                packetBuffer = createPacketBuffer(bufferPool.get(), createPlayerPacket);
+                sendTo(clientPort, packetBuffer);
+                bufferPool->freeBuffer(packetBuffer);
+            }
+        }
     }
 }
 
@@ -651,11 +707,11 @@ void AGameServer::processAllPendingPackets()
 
 void AGameServer::broadcastPlayerMovement(unsigned short client)
 {
-    const auto& pair = players.find(client);
-    if (pair != players.end())
+    if (liveClients.find(client) != liveClients.end())
     {
-        sendPacketToAll(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, pair->second->GetActorLocation(),
-                           pair->second->GetActorRotation(), pair->second->GetCharacterMovement()->Velocity });
+        GameClientData& playerData = gameClientData[client];
+        sendPacketToAll(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, playerData.player->GetActorLocation(),
+                           playerData.player->GetActorRotation(), playerData.player->GetCharacterMovement()->Velocity });
     } else
     {
         SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
@@ -664,34 +720,29 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
 
 void AGameServer::broadcastMovingPlayers()
 {
-    for (std::map<unsigned short, bool>::value_type& pair : recentlyMoving)
+    std::lock_guard lock(liveClientsMutex);
+    for (unsigned short port : liveClients)
     {
-        const std::map<unsigned short, AShooterPlayer*>::iterator& playerPair = players.find(pair.first);
-        if (playerPair != players.end())
+        GameClientData& playerData = gameClientData[port];
+        FVector location = playerData.player->GetActorLocation();
+        FRotator rotation = playerData.player->GetActorRotation();
+        bool recentlyMoved = playerData.recentlyMoving;
+        bool currentlyMoved =
+            !playerData.player->GetCharacterMovement()->Velocity.IsNearlyZero() ||
+            //!playerPair->second->GetRotationVector().IsNearlyZero() ||
+            location != playerData.recentPosition ||
+            rotation != playerData.recentRotation;
+        if (recentlyMoved || currentlyMoved)
         {
-            FVector location = playerPair->second->GetActorLocation();
-            FRotator rotation = playerPair->second->GetActorRotation();
-            bool recentlyMoved = pair.second;
-            bool currentlyMoved =
-                !playerPair->second->GetCharacterMovement()->Velocity.IsNearlyZero() ||
-                //!playerPair->second->GetRotationVector().IsNearlyZero() ||
-                location != recentPositions[pair.first] ||
-                rotation != recentRotations[pair.first];
-            if (recentlyMoved || currentlyMoved)
-            {
-                recentPositions[pair.first] = location;
-                recentRotations[pair.first] = rotation;
-                broadcastPlayerMovement(pair.first);
-                pair.second = currentlyMoved;
-            }
-        } else
-        {
-            SPACEMMA_WARN("Player {} not found!", pair.first);
+            playerData.recentPosition = location;
+            playerData.recentRotation = rotation;
+            broadcastPlayerMovement(port);
+            playerData.recentlyMoving = currentlyMoved;
         }
     }
 }
 
-bool AGameServer::isClientAvailable(unsigned short client)
+bool AGameServer::isClientLive(unsigned short client)
 {
     std::lock_guard lock(liveClientsMutex);
     return liveClients.find(client) != liveClients.end();

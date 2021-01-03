@@ -11,6 +11,10 @@
 UCLASS()
 class CLIENT_API AGameClient : public AActor
 {
+    /**
+     * Contains information about current and previous location and velocity.
+     * Used for movement interpolation.
+     */
     struct RecentPosData
     {
         FVector prevPos{};
@@ -18,6 +22,14 @@ class CLIENT_API AGameClient : public AActor
         FVector prevVelocity{};
         FVector nextVelocity{};
         float timePassed{};
+    };
+    /**
+     * Contains all importaant information about a remote player.
+     */
+    struct OtherPlayerData final
+    {
+        AShooterPlayer* player{};
+        std::string nickname{};
     };
 
     GENERATED_BODY()
@@ -30,6 +42,11 @@ public:
     virtual void Tick(float DeltaTime) override;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Data)
         AShooterPlayer* ClientPawn;
+    /**
+    * The nickname of this player. If empty, invalid or already occupied, the server will reject the connection.
+    */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Connection_Parameters)
+        FString Nickname;
     /**
     * The ip of a server to which player will try to connect to.
     */
@@ -139,7 +156,7 @@ private:
     std::vector<spacemma::ByteBuffer*> receivedPackets{}, toSendPackets{};
     std::unique_ptr<spacemma::BufferPool> bufferPool{};
     std::unique_ptr<spacemma::TCPClient> tcpClient{};
-    std::map<unsigned short, AShooterPlayer*> otherPlayers{};
+    std::map<unsigned short, OtherPlayerData> otherPlayers{};
     std::map<unsigned short, RecentPosData> recentPosData{};
     unsigned short playerId{ 0 };
 };

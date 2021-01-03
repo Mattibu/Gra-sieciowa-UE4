@@ -34,6 +34,25 @@ bool spacemma::WinTCPClient::connect(gsl::cstring_span ipAddress, unsigned short
         WinsockUtil::wsaCleanup(this);
         return false;
     }
+    const int TIMEOUT = TCP_SOCKET_TIMEOUT;
+    //if (int ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,
+    //                         reinterpret_cast<const char*>(&TIMEOUT), sizeof(TIMEOUT)); ret == SOCKET_ERROR)
+    //{
+    //    SPACEMMA_ERROR("Failed to set receive timeout ({})!", WSAGetLastError());
+    //    shutdown();
+    //    close();
+    //    WinsockUtil::wsaCleanup(this);
+    //    return false;
+    //}
+    if (int ret = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO,
+                             reinterpret_cast<const char*>(&TIMEOUT), sizeof(TIMEOUT)); ret == SOCKET_ERROR)
+    {
+        SPACEMMA_ERROR("Failed to set send timeout ({})!", WSAGetLastError());
+        shutdown();
+        close();
+        WinsockUtil::wsaCleanup(this);
+        return false;
+    }
     address = { AF_INET, htons(port), 0, {0} };
     if (int ret = InetPtonA(address.sin_family, ipAddress.cbegin(), &address.sin_addr); ret != 1)
     {

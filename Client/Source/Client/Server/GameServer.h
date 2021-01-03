@@ -5,6 +5,7 @@
 #include "Client/Server/TCPMultiClientServer.h"
 #include "Client/Server/Thread.h"
 #include "Client/ShooterPlayer.h"
+#include "Client/Shared/Packets.h"
 #include "Engine/World.h"
 #include <map>
 #include <set>
@@ -13,6 +14,21 @@
 UCLASS()
 class CLIENT_API AGameServer : public AActor
 {
+    /**
+     * Contains all important information about a specific client.
+     */
+    struct GameClientData final
+    {
+        spacemma::Thread* sendThread{};
+        spacemma::Thread* receiveThread{};
+        AShooterPlayer* player{ nullptr };
+        spacemma::ClientBuffers* sendBuffers{};
+        bool recentlyMoving{};
+        FVector recentPosition{};
+        FRotator recentRotation{};
+        std::string nickname{};
+
+    };
     GENERATED_BODY()
 
 public:
@@ -141,45 +157,45 @@ private:
     */
     void broadcastMovingPlayers();
     /**
-    * Checks if client is available.
+    * Checks if client is available and in game.
     */
-    bool isClientAvailable(unsigned short client);
-    std::recursive_mutex connectionMutex{};
-    std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, liveClientsMutex{}, spawnAwaitingMutex{};
+    bool isClientLive(unsigned short client);
+    std::recursive_mutex connectionMutex{}, liveClientsMutex{};
+    std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, spawnAwaitingMutex{}, unverifiedPlayersMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
     std::unique_ptr<spacemma::TCPMultiClientServer> tcpServer{};
     spacemma::Thread* acceptThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
-    std::map<unsigned short, spacemma::Thread*> sendThreads{};
-    std::map<unsigned short, spacemma::Thread*> receiveThreads{};
-    std::map<unsigned short, AShooterPlayer*> players{};
-    std::map<unsigned short, spacemma::ClientBuffers*> perClientSendBuffers{};
-    std::map<unsigned short, bool> recentlyMoving{}; // todo: replace these 3 maps with 1 map of struct containing bool, FVector and FRotator, current solution is nasty
-    std::map<unsigned short, FVector> recentPositions{};
-    std::map<unsigned short, FRotator> recentRotations{};
     std::set<unsigned short> disconnectingPlayers{};
     std::set<unsigned short> liveClients{};
     std::set<unsigned short> playersAwaitingSpawn{};
+    std::set<unsigned short> unverifiedPlayers{};
+    std::map<unsigned short, GameClientData> gameClientData{};
     float movementUpdateDelta{}, currentMovementUpdateDelta{ 0.0f };
+    std::string mapName{};
 };
 
 template<typename T>
 void AGameServer::sendPacketToAll(T packet)
 {
-    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
+    static_assert(!std::is_same<spacemma::packets::S2C_CreatePlayer, T>());
+    std::lock_guard lock(liveClientsMutex);
+    for (unsigned short port : liveClients)
     {
-        sendPacketTo(pair.first, packet);
+        sendPacketTo(port, packet);
     }
 }
 
 template<typename T>
 void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient)
 {
-    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
+    static_assert(!std::is_same<spacemma::packets::S2C_CreatePlayer, T>());
+    std::lock_guard lock(liveClientsMutex);
+    for (unsigned short port : liveClients)
     {
-        if (pair.first != ignoredClient)
+        if (port != ignoredClient)
         {
-            sendPacketTo(pair.first, packet);
+            sendPacketTo(port, packet);
         }
     }
 }
@@ -187,11 +203,13 @@ void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient)
 template<typename T>
 void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient1, unsigned short ignoredClient2)
 {
-    for (const std::map<unsigned short, spacemma::ClientBuffers*>::value_type& pair : perClientSendBuffers)
+    static_assert(!std::is_same<spacemma::packets::S2C_CreatePlayer, T>());
+    std::lock_guard lock(liveClientsMutex);
+    for (unsigned short port : liveClients)
     {
-        if (pair.first != ignoredClient1 && pair.first != ignoredClient2)
+        if (port != ignoredClient1 && port != ignoredClient2)
         {
-            sendPacketTo(pair.first, packet);
+            sendPacketTo(port, packet);
         }
     }
 }
@@ -199,6 +217,7 @@ void AGameServer::sendPacketToAllBut(T packet, unsigned short ignoredClient1, un
 template<typename T>
 void AGameServer::sendPacketTo(unsigned short client, T packet)
 {
+    static_assert(!std::is_same<spacemma::packets::S2C_CreatePlayer, T>());
     spacemma::ByteBuffer* buff = bufferPool->getBuffer(sizeof(T));
     memcpy(buff->getPointer(), &packet, sizeof(T));
     sendTo(client, buff);
