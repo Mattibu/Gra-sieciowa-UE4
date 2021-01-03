@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 
 using namespace spacemma;
+using namespace spacemma::packets;
 
 struct ThreadArgs
 {
@@ -18,7 +19,6 @@ struct ThreadArgs
 AGameServer::AGameServer()
 {
     PrimaryActorTick.bCanEverTick = true;
-
 }
 
 bool AGameServer::startServer()
