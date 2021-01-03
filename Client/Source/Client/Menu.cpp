@@ -3,6 +3,7 @@
 #include <WS2tcpip.h>
 #include "Kismet/GameplayStatics.h"
 #include "Client/SpaceMMAInstance.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 
 bool UMenu::IsIpValid(FString trimmedIp)
 {
@@ -27,6 +28,7 @@ void UMenu::StartServer(FString trimmedIp, FString trimmedPort, FString map)
     instance->ServerIpAddress = trimmedIp;
     instance->ServerPort = FCString::Atoi(*trimmedPort);
     instance->MaxClients = 8;
+    UWidgetBlueprintLibrary::SetInputMode_GameOnly(UGameplayStatics::GetPlayerController(GetWorld(), 0));
     UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }
 
@@ -37,5 +39,6 @@ void UMenu::StartClient(FString trimmedNickname, FString trimmedIp, FString trim
     instance->ServerIpAddress = trimmedIp;
     instance->ServerPort = FCString::Atoi(*trimmedPort);
     instance->Nickname = trimmedNickname;
+    UWidgetBlueprintLibrary::SetInputMode_GameOnly(UGameplayStatics::GetPlayerController(GetWorld(), 0));
     UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }
