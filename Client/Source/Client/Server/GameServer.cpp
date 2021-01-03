@@ -396,7 +396,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                             if (hitResult.Actor.IsValid())
                             {
                                 FString name = hitResult.Actor->GetName();
-                                SPACEMMA_DEBUG("Shooted object name: {}" + std::string(TCHAR_TO_UTF8(*name)));
+                                SPACEMMA_DEBUG("Shooted object name: {}", StringCast<ANSICHAR>(*name).Get());
                                 for (auto player : players)
                                 {
                                     if (player.second->GetName() == hitResult.Actor->GetName() && packet->playerId != player.first)
