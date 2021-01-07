@@ -21,7 +21,7 @@ bool UMenu::IsPortValid(FString trimmedPort)
     return port >= 1024 && port <= 49151;
 }
 
-void UMenu::StartServer(FString trimmedIp, FString trimmedPort, FString map)
+void UMenu::PrepareServer(FString trimmedIp, FString trimmedPort)
 {
     USpaceMMAInstance* instance = reinterpret_cast<USpaceMMAInstance*>(GetGameInstance());
     instance->Initialization = USpaceMMAInstance::LevelInitialization::Server;
@@ -29,10 +29,9 @@ void UMenu::StartServer(FString trimmedIp, FString trimmedPort, FString map)
     instance->ServerPort = FCString::Atoi(*trimmedPort);
     instance->MaxClients = 8;
     UWidgetBlueprintLibrary::SetInputMode_GameOnly(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-    UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }
 
-void UMenu::StartClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort, FString map)
+void UMenu::PrepareClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort)
 {
     USpaceMMAInstance* instance = reinterpret_cast<USpaceMMAInstance*>(GetGameInstance());
     instance->Initialization = USpaceMMAInstance::LevelInitialization::Client;
@@ -40,5 +39,4 @@ void UMenu::StartClient(FString trimmedNickname, FString trimmedIp, FString trim
     instance->ServerPort = FCString::Atoi(*trimmedPort);
     instance->Nickname = trimmedNickname;
     UWidgetBlueprintLibrary::SetInputMode_GameOnly(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-    UGameplayStatics::OpenLevel(GetWorld(), FName{ map });
 }

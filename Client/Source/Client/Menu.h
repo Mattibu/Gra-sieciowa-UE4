@@ -16,7 +16,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = InputValidation)
         bool IsPortValid(FString trimmedPort);
     UFUNCTION(BlueprintCallable, Category = ButtonFunctionality)
-        void StartServer(FString trimmedIp, FString trimmedPort, FString map);
+        void PrepareServer(FString trimmedIp, FString trimmedPort);
     UFUNCTION(BlueprintCallable, Category = ButtonFunctionality)
-        void StartClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort, FString map);
+        void PrepareClient(FString trimmedNickname, FString trimmedIp, FString trimmedPort);
 };
