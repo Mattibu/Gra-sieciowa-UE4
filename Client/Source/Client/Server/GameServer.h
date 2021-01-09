@@ -26,6 +26,8 @@ class CLIENT_API AGameServer : public AActor
         bool recentlyMoving{};
         FVector recentPosition{};
         FRotator recentRotation{};
+        unsigned int kills{};
+        unsigned int deaths{};
         std::string nickname{};
 
     };

@@ -38,7 +38,17 @@ public:
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void DeadPlayer();
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void AddPlayerToScoreboard(const FString& name, int kills, int deaths);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void RemovePlayerFromScoreboard(const FString& name);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void UpdatePlayerOnScoreboard(const FString& name, int kills, int deaths);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void RespawnPlayer(FVector position, FRotator rotator);
+    UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)
+        float GetHealth();
+    UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)
+        bool TakeDamage(float damage);
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;

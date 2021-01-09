@@ -30,6 +30,8 @@ class CLIENT_API AGameClient : public AActor
     {
         AShooterPlayer* player{};
         std::string nickname{};
+        unsigned int kills{ 0 };
+        unsigned int deaths{ 0 };
     };
 
     GENERATED_BODY()
@@ -159,6 +161,8 @@ private:
     std::map<unsigned short, OtherPlayerData> otherPlayers{};
     std::map<unsigned short, RecentPosData> recentPosData{};
     unsigned short playerId{ 0 };
+    unsigned int kills{0};
+    unsigned int deaths{0};
 };
 
 template <typename T>

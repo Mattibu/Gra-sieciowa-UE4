@@ -290,10 +290,10 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 S2C_CreatePlayer packet;
                 if (reinterpretPacket(span, buffPos, packet))
                 {
-                    SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}], '{}'", packet.playerId,
+                    SPACEMMA_DEBUG("S2C_CreatePlayer: {}, [{},{},{}], [{},{},{}], '{}', {}, {}", packet.playerId,
                                    packet.location.x, packet.location.y, packet.location.z,
                                    packet.rotator.pitch, packet.rotator.yaw, packet.rotator.roll,
-                                   packet.nickname);
+                                   packet.nickname, packet.kills, packet.deaths);
                     bool valid = true;
                     FVector locVec{ packet.location.asFVector() };
                     if (packet.playerId == playerId)
@@ -320,7 +320,8 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         } else
                         {
                             actor->InitiateClientPlayer();
-                            otherPlayers.insert({ packet.playerId, {actor, packet.nickname } });
+                            ClientPawn->AddPlayerToScoreboard(FString(packet.nickname.c_str()), packet.kills, packet.deaths);
+                            otherPlayers.insert({ packet.playerId, {actor, packet.nickname, packet.kills, packet.deaths } });
                         }
                     }
                     if (valid)
@@ -350,6 +351,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     {
                         SPACEMMA_DEBUG("Destroying player {} '{}' ({})...", packet->playerId, pair->second.nickname, playerId);
                         pair->second.player->Destroy();
+                        ClientPawn->RemovePlayerFromScoreboard(FString(pair->second.nickname.c_str()));
                         otherPlayers.erase(pair);
                     }
                 } else
@@ -626,6 +628,44 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         SPACEMMA_WARN("Unable to respawn {} ({}). Player not found!", packet->playerId, playerId);
                     }
                 } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HUpdateScoreboard:
+            {
+                S2C_UpdateScoreboard* packet = reinterpretPacket<S2C_UpdateScoreboard>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("Game Client received: S2C_UpdateScoreboard: {}, {}", packet->killerPlayerId, packet->killedPlayerId);
+                    if (packet->killerPlayerId == playerId)
+                    {
+                        kills += 1;
+                        ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
+                        const auto& pairIt = otherPlayers.find(packet->killedPlayerId);
+                        if (pairIt != otherPlayers.end())
+                        {
+                            auto& otherPlayer = pairIt->second;
+                            otherPlayer.deaths += 1;
+                            ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
+                        }
+                        break;
+                    }
+                    else if (packet->killedPlayerId == playerId)
+                    {
+                        deaths += 1;
+                        ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
+                        const auto& pairIt = otherPlayers.find(packet->killerPlayerId);
+                        if (pairIt != otherPlayers.end())
+                        {
+                            auto& otherPlayer = pairIt->second;
+                            otherPlayer.kills += 1;
+                            ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
+                        }
+                    }
+                }
+                else
                 {
                     dataValid = false;
                 }
