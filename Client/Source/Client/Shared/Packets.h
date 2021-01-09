@@ -73,7 +73,8 @@ namespace spacemma
             S2C_HInvalidNickname,
             S2C_HInvalidMap,
             S2C_HInvalidData,
-            C2S_HInitConnection
+            C2S_HInitConnection,
+            S2C_HUpdateScoreboard
         };
 
         /**
@@ -97,6 +98,8 @@ namespace spacemma
             uint16_t playerId{};
             NetVector location{};
             NetRotator rotator{};
+            unsigned int kills{};
+            unsigned int deaths{};
             std::string nickname{};
         };
 
@@ -239,6 +242,13 @@ namespace spacemma
             uint16_t playerId{};
             NetVector location;
             NetRotator rotator;
+        };
+
+        struct S2C_UpdateScoreboard final
+        {
+            uint8_t header{ S2C_HUpdateScoreboard };
+            uint16_t killerPlayerId{};
+            uint16_t killedPlayerId{};
         };
 
         /**

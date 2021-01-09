@@ -27,6 +27,7 @@ void USpaceMMAInstance::Initialize()
             APawn* defaultPawn = playerController->GetPawn();
             playerController->Possess(player);
             defaultPawn->Destroy();
+            client->ClientPawn->AddPlayerToScoreboard(client->Nickname, 0, 0);
         }
         break;
         case LevelInitialization::Server:
