@@ -246,6 +246,9 @@ namespace spacemma
             NetRotator rotator;
         };
 
+        /**
+         * S2C: Inform players about the player who killed another player to update the scoreboard data.
+         */
         struct S2C_UpdateScoreboard final
         {
             uint8_t header{ S2C_HUpdateScoreboard };
