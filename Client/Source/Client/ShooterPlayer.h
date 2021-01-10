@@ -45,6 +45,8 @@ public:
         void UpdatePlayerOnScoreboard(const FString& name, int kills, int deaths);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void RespawnPlayer(FVector position, FRotator rotator);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void StartRound(int roundTime);
     UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)
         float GetHealth();
     UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)

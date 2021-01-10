@@ -37,4 +37,6 @@ public:
         FString Nickname = "Player";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MaxClients = 8;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        float RoundTime = 300;
 };

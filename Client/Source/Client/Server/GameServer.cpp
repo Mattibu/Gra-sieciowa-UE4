@@ -460,7 +460,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                                         const bool isPlayerDead = otherPlayerData.player->TakeDamage(20.0f);
                                         if (isPlayerDead)
                                         {
-                                            SPACEMMA_DEBUG("Shooted object healt points: {}", otherPlayerData.player->GetHealth());
+                                            SPACEMMA_DEBUG("Shooted object health points: {}", otherPlayerData.player->GetHealth());
                                             clientData.kills += 1;
                                             otherPlayerData.deaths += 1;
                                             SPACEMMA_DEBUG("S2C_UpdateScoreboard: {}, {}", packet->playerId, otherPlayer);
@@ -665,6 +665,7 @@ void AGameServer::handlePlayerAwaitingSpawn()
             clientPort,
             playerData.recentPosition,
             playerData.recentRotation,
+            (uint16)(RoundTime - currentRoundTime),
             playerData.kills,
             playerData.deaths,
             playerData.nickname
@@ -688,6 +689,7 @@ void AGameServer::handlePlayerAwaitingSpawn()
                     port,
                     otherPlayerData.player->GetActorLocation(),
                     otherPlayerData.player->GetActorRotation(),
+                    (uint16)(RoundTime - currentRoundTime),
                     playerData.kills,
                     playerData.deaths,
                     otherPlayerData.nickname
@@ -789,6 +791,22 @@ bool AGameServer::isClientLive(unsigned short client)
     return liveClients.find(client) != liveClients.end();
 }
 
+void AGameServer::handleRoundTimer(float deltaTime)
+{
+    currentRoundTime += deltaTime;
+    if (currentRoundTime > RoundTime)
+    {
+        currentRoundTime = 0;
+        for (auto &clientData : gameClientData)
+        {
+            clientData.second.deaths = 0;
+            clientData.second.kills = 0;
+        }
+        
+        sendPacketToAll(S2C_StartRound{ S2C_HStartRound, {}, (uint16_t) RoundTime });
+    }
+}
+
 void AGameServer::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
@@ -797,6 +815,7 @@ void AGameServer::Tick(float DeltaTime)
         handlePlayerAwaitingSpawn();
         processAllPendingPackets();
         handlePendingDisconnect();
+        handleRoundTimer(DeltaTime);
         currentMovementUpdateDelta += DeltaTime;
         if (currentMovementUpdateDelta >= movementUpdateDelta)
         {

@@ -21,13 +21,14 @@ bool UMenu::IsPortValid(FString trimmedPort)
     return port >= 1024 && port <= 49151;
 }
 
-void UMenu::PrepareServer(FString trimmedIp, FString trimmedPort)
+void UMenu::PrepareServer(FString trimmedIp, FString trimmedPort, FString roundTime)
 {
     USpaceMMAInstance* instance = reinterpret_cast<USpaceMMAInstance*>(GetGameInstance());
     instance->Initialization = USpaceMMAInstance::LevelInitialization::Server;
     instance->ServerIpAddress = trimmedIp;
     instance->ServerPort = FCString::Atoi(*trimmedPort);
     instance->MaxClients = 8;
+    instance->RoundTime = FCString::Atoi(*roundTime);
     UWidgetBlueprintLibrary::SetInputMode_GameOnly(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 }
 

@@ -301,6 +301,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         SPACEMMA_DEBUG("Adjusting self-position of {} (S2C_CreatePlayer)...", playerId);
                         ClientPawn->SetActorLocation(locVec);
                         ClientPawn->SetActorRotation(packet.rotator.asFRotator());
+                        ClientPawn->StartRound(packet.roundTime);
                     } else if (otherPlayers.find(packet.playerId) != otherPlayers.end())
                     {
                         valid = false;
@@ -400,6 +401,28 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                         SPACEMMA_WARN("Unable to create shoot effect for {} ({}). Player not found!", packet->playerId, playerId);
                     }
                 } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case S2C_HStartRound:
+            {
+                S2C_StartRound* packet = reinterpretPacket<S2C_StartRound>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_StartRound: {}",
+                        packet->roundTime);      
+                    kills = 0;
+                    deaths = 0;
+                    for (auto &otherPlayer : otherPlayers)
+                    {
+                        otherPlayer.second.deaths = 0;
+                        otherPlayer.second.kills = 0;
+                    }
+                    ClientPawn->StartRound(packet->roundTime);
+                }
+                else
                 {
                     dataValid = false;
                 }

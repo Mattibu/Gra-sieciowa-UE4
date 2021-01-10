@@ -70,6 +70,7 @@ namespace spacemma
             B2B_HRopeDetach,
             B2B_HDeadPlayer,
             B2B_HRespawnPlayer,
+            S2C_HStartRound,
             S2C_HInvalidNickname,
             S2C_HInvalidMap,
             S2C_HInvalidData,
@@ -98,6 +99,7 @@ namespace spacemma
             uint16_t playerId{};
             NetVector location{};
             NetRotator rotator{};
+            uint16_t roundTime{};
             unsigned int kills{};
             unsigned int deaths{};
             std::string nickname{};
@@ -250,6 +252,17 @@ namespace spacemma
             uint16_t killerPlayerId{};
             uint16_t killedPlayerId{};
         };
+
+        /**
+         * Inform about starting new round
+         */
+        struct S2C_StartRound final
+        {
+            uint8_t header{ S2C_HStartRound };
+            uint8_t padding{};
+            uint16_t roundTime{};
+        };
+        
 
         /**
          * Sent before disconnecting client to inform that the reason is an invalid nickname.

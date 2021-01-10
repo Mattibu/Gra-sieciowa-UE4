@@ -59,6 +59,11 @@ public:
     */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MovementUpdateTickRate = 10;
+    /**
+    * Specifies the round duration in seconds
+    */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
+        int32 RoundTime = 600;
     UPROPERTY(EditDefaultsOnly, Category = Spawn_Parameters)
         TSubclassOf<AActor> PlayerBP;
     /**
@@ -162,6 +167,10 @@ private:
     * Checks if client is available and in game.
     */
     bool isClientLive(unsigned short client);
+    /**
+    * Updates round timer and handle round restart
+    */
+    void handleRoundTimer(float deltaTime);
     std::recursive_mutex connectionMutex{}, liveClientsMutex{};
     std::mutex receiveMutex{}, startStopMutex{}, disconnectMutex{}, spawnAwaitingMutex{}, unverifiedPlayersMutex{};
     std::unique_ptr<spacemma::BufferPool> bufferPool;
@@ -175,6 +184,7 @@ private:
     std::map<unsigned short, GameClientData> gameClientData{};
     float movementUpdateDelta{}, currentMovementUpdateDelta{ 0.0f };
     std::string mapName{};
+    float currentRoundTime{ 0.0f };
 };
 
 template<typename T>

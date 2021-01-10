@@ -43,6 +43,7 @@ void USpaceMMAInstance::Initialize()
             }
             server->ServerIpAddress = ServerIpAddress;
             server->ServerPort = ServerPort;
+            server->RoundTime = RoundTime;
             server->startServer();
         }
         break;
