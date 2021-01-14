@@ -117,10 +117,10 @@ void AGameServer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     switch (EndPlayReason)
     {
-    case EEndPlayReason::Type::EndPlayInEditor:
-    case EEndPlayReason::Type::RemovedFromWorld:
-        stopServer();
-        break;
+        case EEndPlayReason::Type::EndPlayInEditor:
+        case EEndPlayReason::Type::RemovedFromWorld:
+            stopServer();
+            break;
     }
     Super::EndPlay(EndPlayReason);
 }
@@ -215,8 +215,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
         {
             std::lock_guard lock(srv->receiveMutex);
             srv->receivedPackets.push_back({ port, buffer });
-        }
-        else if (!srv->tcpServer->isConnected(port))
+        } else if (!srv->tcpServer->isConnected(port))
         {
             SPACEMMA_ERROR("Connection to {} lost.", port);
             if (srv->isClientLive(port))
@@ -364,8 +363,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                             playersAwaitingSpawn.insert(sourceClient);
                             std::lock_guard lock2(unverifiedPlayersMutex);
                             unverifiedPlayers.erase(sourceClient);
-                        }
-                        else
+                        } else
                         {
                             SPACEMMA_WARN("Player {} provided invalid nickname '{}'. Closing connection.");
                             ByteBuffer* buff = bufferPool->getBuffer(1);
@@ -376,8 +374,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                             disconnectingPlayers.insert(sourceClient);
                             return;
                         }
-                    }
-                    else
+                    } else
                     {
                         SPACEMMA_WARN("Player {} is playing on a different map ('{}' != '{}'). Closing connection.", sourceClient, mapName, packet.mapName);
                         ByteBuffer* buff = bufferPool->getBuffer(1);
@@ -388,13 +385,11 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                         disconnectingPlayers.insert(sourceClient);
                         return;
                     }
-                }
-                else
+                } else
                 {
                     return;
                 }
-            }
-            else
+            } else
             {
                 SPACEMMA_WARN("Player {} did not authorise. Closing connection.", sourceClient);
                 ByteBuffer* buff = bufferPool->getBuffer(1);
@@ -405,8 +400,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 disconnectingPlayers.insert(sourceClient);
                 return;
             }
-        }
-        else
+        } else
         {
             SPACEMMA_WARN("Rejecting packet from client {} that is not live.", sourceClient);
             return;
@@ -417,221 +411,206 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
         Header header = static_cast<Header>(span[buffPos]);
         switch (header)
         {
-        case C2S_HShoot:
-        {
-            C2S_Shoot* packet = reinterpretPacket<C2S_Shoot>(span, buffPos);
-            if (packet)
+            case C2S_HShoot:
             {
-                SPACEMMA_DEBUG("C2S_Shoot: {}, [{},{},{}], [{},{},{}]",
-                    packet->playerId, packet->location.x, packet->location.y, packet->location.z,
-                    packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                uint16_t shootDistance = 10000;
-                if (liveClients.find(packet->playerId) != liveClients.end())
+                C2S_Shoot* packet = reinterpretPacket<C2S_Shoot>(span, buffPos);
+                if (packet)
                 {
-                    GameClientData& clientData = gameClientData[packet->playerId];
-                    FHitResult hitResult;
-                    FVector startLocation = packet->location.asFVector();
-
-                    if (GetWorld()->LineTraceSingleByChannel(hitResult, startLocation,
-                        startLocation + clientData.player->GetActorForwardVector() * shootDistance,
-                        ECC_Visibility))
+                    SPACEMMA_DEBUG("C2S_Shoot: {}, [{},{},{}], [{},{},{}]",
+                                   packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    uint16_t shootDistance = 10000;
+                    if (liveClients.find(packet->playerId) != liveClients.end())
                     {
-                        shootDistance = hitResult.Distance;
-                        if (hitResult.Actor.IsValid())
+                        GameClientData& clientData = gameClientData[packet->playerId];
+                        FHitResult hitResult;
+                        FVector startLocation = packet->location.asFVector();
+
+                        if (GetWorld()->LineTraceSingleByChannel(hitResult, startLocation,
+                                                                 startLocation + clientData.player->GetActorForwardVector() * shootDistance,
+                                                                 ECC_Visibility))
                         {
-                            FString name = hitResult.Actor->GetName();
-                            SPACEMMA_DEBUG("Shooter object name: {}", StringCast<ANSICHAR>(*gameClientData[packet->playerId].player->GetName()).Get());
-                            SPACEMMA_DEBUG("Shooted object name: {}", StringCast<ANSICHAR>(*name).Get());
-                            for (unsigned short otherPlayer : liveClients)
+                            shootDistance = hitResult.Distance;
+                            if (hitResult.Actor.IsValid())
                             {
-                                if (otherPlayer != packet->playerId)
+                                FString name = hitResult.Actor->GetName();
+                                SPACEMMA_DEBUG("Shooter object name: {}", StringCast<ANSICHAR>(*gameClientData[packet->playerId].player->GetName()).Get());
+                                SPACEMMA_DEBUG("Shooted object name: {}", StringCast<ANSICHAR>(*name).Get());
+                                for (unsigned short otherPlayer : liveClients)
                                 {
-                                    GameClientData& otherPlayerData = gameClientData[otherPlayer];
-                                    if (otherPlayerData.player->GetName() == hitResult.Actor->GetName())
+                                    if (otherPlayer != packet->playerId)
                                     {
-                                        if (otherPlayerData.player->GetHealth() <= 0.0f)
-                                            break;
-
-                                        //TODO:change chardcoded damage value;
-                                        uint16_t damage = 20;
-                                        sendPacketTo(otherPlayer, S2C_Damage{ S2C_HDamage, {}, otherPlayer, 20 });
-                                        SPACEMMA_DEBUG("Shooted object healt points: {}", otherPlayerData.player->GetHealth());
-
-                                        const bool isPlayerDead = otherPlayerData.player->TakeDamage(20.0f);
-                                        if (isPlayerDead)
+                                        GameClientData& otherPlayerData = gameClientData[otherPlayer];
+                                        if (otherPlayerData.player->GetName() == hitResult.Actor->GetName())
                                         {
-                                            SPACEMMA_DEBUG("Shooted object health points: {}", otherPlayerData.player->GetHealth());
-                                            clientData.kills += 1;
-                                            otherPlayerData.deaths += 1;
-                                            SPACEMMA_DEBUG("S2C_UpdateScoreboard: {}, {}", packet->playerId, otherPlayer);
-                                            sendPacketToAll(S2C_UpdateScoreboard{S2C_HUpdateScoreboard, packet->playerId, otherPlayer });
+                                            if (otherPlayerData.player->GetHealth() <= 0.0f)
+                                                break;
+
+                                            //TODO:change chardcoded damage value;
+                                            uint16_t damage = 20;
+                                            sendPacketTo(otherPlayer, S2C_Damage{ S2C_HDamage, {}, otherPlayer, 20 });
+                                            SPACEMMA_DEBUG("Shooted object healt points: {}", otherPlayerData.player->GetHealth());
+
+                                            const bool isPlayerDead = otherPlayerData.player->TakeDamage(20.0f);
+                                            if (isPlayerDead)
+                                            {
+                                                SPACEMMA_DEBUG("Shooted object health points: {}", otherPlayerData.player->GetHealth());
+                                                ++clientData.kills;
+                                                ++otherPlayerData.deaths;
+                                                SPACEMMA_DEBUG("S2C_UpdateScoreboard: {}, {}", packet->playerId, otherPlayer);
+                                                sendPacketToAll(S2C_UpdateScoreboard{ S2C_HUpdateScoreboard, packet->playerId, otherPlayer });
+                                            }
+                                            break;
                                         }
-                                        break;
                                     }
                                 }
+                            } else
+                            {
+                                SPACEMMA_DEBUG("Shooted nothing!");
                             }
                         }
-                        else
-                        {
-                            SPACEMMA_DEBUG("Shooted nothing!");
-                        }
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to shoot for {}. Player not found!", packet->playerId);
                     }
-                }
-                else
+                    sendPacketToAllBut(S2C_Shoot{ S2C_HShoot, {}, packet->playerId, shootDistance, packet->location, packet->rotator }, sourceClient);
+                } else
                 {
-                    SPACEMMA_WARN("Failed to shoot for {}. Player not found!", packet->playerId);
+                    dataValid = false;
                 }
-                sendPacketToAllBut(S2C_Shoot{ S2C_HShoot, {}, packet->playerId, shootDistance, packet->location, packet->rotator }, sourceClient);
+                break;
             }
-            else
+            case B2B_HUpdateVelocity:
             {
+                B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("B2B_UpdateVelocity: {}, [{},{},{}]",
+                                   packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->GetCharacterMovement()->Velocity = (packet->velocity.asFVector());
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRotate:
+            {
+                B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->SetActorRotation(packet->rotator.asFRotator());
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRopeAttach:
+            {
+                B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
+                                   packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->AttachRope(packet->attachPosition.asFVector(), false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to attach rope for {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRopeDetach:
+            {
+                B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->DetachRope(false);
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to detach rope for {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HDeadPlayer:
+            {
+                B2B_DeadPlayer* packet = reinterpretPacket<B2B_DeadPlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_DeadPlayer: {}", packet->playerId);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->DeadPlayer();
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            case B2B_HRespawnPlayer:
+            {
+                B2B_RespawnPlayer* packet = reinterpretPacket<B2B_RespawnPlayer>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_TRACE("B2B_RespawnPlayer: {}, [{},{},{}], [{},{},{}]",
+                                   packet->playerId, packet->location.x, packet->location.y, packet->location.z,
+                                   packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
+                    if (liveClients.find(packet->playerId) != liveClients.end())
+                    {
+                        gameClientData[packet->playerId].player->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
+                    } else
+                    {
+                        SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
+                    }
+                    sendPacketToAllBut(*packet, sourceClient);
+                } else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
+            default:
+            {
+                SPACEMMA_ERROR("Received invalid packet header of {}! Discarding packet.", header);
                 dataValid = false;
+                break;
             }
-            break;
-        }
-        case B2B_HUpdateVelocity:
-        {
-            B2B_UpdateVelocity* packet = reinterpretPacket<B2B_UpdateVelocity>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_DEBUG("B2B_UpdateVelocity: {}, [{},{},{}]",
-                    packet->playerId, packet->velocity.x, packet->velocity.y, packet->velocity.z);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->GetCharacterMovement()->Velocity = (packet->velocity.asFVector());
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to update velocity of {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        case B2B_HRotate:
-        {
-            B2B_Rotate* packet = reinterpretPacket<B2B_Rotate>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_Rotate: {}, [{},{},{}]", packet->playerId,
-                    packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->SetActorRotation(packet->rotator.asFRotator());
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to change rotation of {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        case B2B_HRopeAttach:
-        {
-            B2B_RopeAttach* packet = reinterpretPacket<B2B_RopeAttach>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_RopeAttach: {}, [{},{},{}]", packet->playerId,
-                    packet->attachPosition.x, packet->attachPosition.y, packet->attachPosition.z);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->AttachRope(packet->attachPosition.asFVector(), false);
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to attach rope for {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        case B2B_HRopeDetach:
-        {
-            B2B_RopeDetach* packet = reinterpretPacket<B2B_RopeDetach>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_RopeDetach: {}", packet->playerId);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->DetachRope(false);
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to detach rope for {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        case B2B_HDeadPlayer:
-        {
-            B2B_DeadPlayer* packet = reinterpretPacket<B2B_DeadPlayer>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_DeadPlayer: {}", packet->playerId);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->DeadPlayer();
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        case B2B_HRespawnPlayer:
-        {
-            B2B_RespawnPlayer* packet = reinterpretPacket<B2B_RespawnPlayer>(span, buffPos);
-            if (packet)
-            {
-                SPACEMMA_TRACE("B2B_RespawnPlayer: {}, [{},{},{}], [{},{},{}]",
-                    packet->playerId, packet->location.x, packet->location.y, packet->location.z,
-                    packet->rotator.pitch, packet->rotator.yaw, packet->rotator.roll);
-                if (liveClients.find(packet->playerId) != liveClients.end())
-                {
-                    gameClientData[packet->playerId].player->RespawnPlayer(packet->location.asFVector(), packet->rotator.asFRotator());
-                }
-                else
-                {
-                    SPACEMMA_WARN("Failed to dead player {}. Player not found!", packet->playerId);
-                }
-                sendPacketToAllBut(*packet, sourceClient);
-            }
-            else
-            {
-                dataValid = false;
-            }
-            break;
-        }
-        default:
-        {
-            SPACEMMA_ERROR("Received invalid packet header of {}! Discarding packet.", header);
-            dataValid = false;
-            break;
-        }
         }
     }
 }
@@ -654,7 +633,7 @@ void AGameServer::handlePlayerAwaitingSpawn()
         params.Name = FName(FString::Printf(TEXT("Player #%d"), static_cast<int32>(clientPort)));
         params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
         AShooterPlayer* actor = GetWorld()->SpawnActor<AShooterPlayer>(PlayerBP, FVector{ 100.0f, 100.0f, 100.0f },
-            FRotator{}, params);
+                                                                       FRotator{}, params);
         GameClientData& playerData = gameClientData[clientPort];
         playerData.player = actor;
         playerData.recentPosition = actor->GetActorLocation();
@@ -690,8 +669,8 @@ void AGameServer::handlePlayerAwaitingSpawn()
                     otherPlayerData.player->GetActorLocation(),
                     otherPlayerData.player->GetActorRotation(),
                     (uint16)(RoundTime - currentRoundTime),
-                    playerData.kills,
-                    playerData.deaths,
+                    otherPlayerData.kills,
+                    otherPlayerData.deaths,
                     otherPlayerData.nickname
                 };
                 packetBuffer = createPacketBuffer(bufferPool.get(), createPlayerPacket);
@@ -754,8 +733,7 @@ void AGameServer::broadcastPlayerMovement(unsigned short client)
         GameClientData& playerData = gameClientData[client];
         sendPacketToAll(S2C_PlayerMovement{ S2C_HPlayerMovement, {}, client, playerData.player->GetActorLocation(),
                            playerData.player->GetActorRotation(), playerData.player->GetCharacterMovement()->Velocity });
-    }
-    else
+    } else
     {
         SPACEMMA_WARN("Failed to broadcast movement of {}. Player not found.", client);
     }
@@ -797,13 +775,13 @@ void AGameServer::handleRoundTimer(float deltaTime)
     if (currentRoundTime > RoundTime)
     {
         currentRoundTime = 0;
-        for (auto &clientData : gameClientData)
+        for (auto& clientData : gameClientData)
         {
             clientData.second.deaths = 0;
             clientData.second.kills = 0;
         }
-        
-        sendPacketToAll(S2C_StartRound{ S2C_HStartRound, {}, (uint16_t) RoundTime });
+
+        sendPacketToAll(S2C_StartRound{ S2C_HStartRound, {}, (uint16_t)RoundTime });
     }
 }
 
