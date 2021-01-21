@@ -662,31 +662,36 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet)
                 {
                     SPACEMMA_DEBUG("Game Client received: S2C_UpdateScoreboard: {}, {}", packet->killerPlayerId, packet->killedPlayerId);
+                    FString killerNickname, victimNickname;
                     if (packet->killerPlayerId == playerId)
                     {
+                        killerNickname = Nickname;
                         kills += 1;
                         ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
                         const auto& pairIt = otherPlayers.find(packet->killedPlayerId);
                         if (pairIt != otherPlayers.end())
                         {
+                            victimNickname = pairIt->second.nickname.c_str();
                             auto& otherPlayer = pairIt->second;
                             otherPlayer.deaths += 1;
                             ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
                         }
-                        break;
                     }
                     else if (packet->killedPlayerId == playerId)
                     {
+                        victimNickname = Nickname;
                         deaths += 1;
                         ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
                         const auto& pairIt = otherPlayers.find(packet->killerPlayerId);
                         if (pairIt != otherPlayers.end())
                         {
+                            killerNickname = pairIt->second.nickname.c_str();
                             auto& otherPlayer = pairIt->second;
                             otherPlayer.kills += 1;
                             ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
                         }
                     }
+                    ClientPawn->AddKillNotification(killerNickname, victimNickname);
                 }
                 else
                 {
