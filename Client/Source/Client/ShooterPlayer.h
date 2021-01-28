@@ -53,6 +53,8 @@ public:
         float GetHealth();
     UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)
         bool TakeDamage(float damage);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
+        void ShowEnemyReceivedDamage();
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;

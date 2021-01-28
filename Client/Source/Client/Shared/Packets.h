@@ -75,7 +75,8 @@ namespace spacemma
             S2C_HInvalidMap,
             S2C_HInvalidData,
             C2S_HInitConnection,
-            S2C_HUpdateScoreboard
+            S2C_HUpdateScoreboard,
+            S2C_HEnemyReceivedDamage
         };
 
         /**
@@ -305,6 +306,11 @@ namespace spacemma
             uint8_t padding{};
             std::string mapName{};
             std::string nickname{};
+        };
+
+        struct S2C_EnemyReceivedDamage final
+        {
+            uint8_t header{ S2C_HEnemyReceivedDamage };
         };
 
         inline ByteBuffer* createPacketBuffer(gsl::not_null<BufferPool*> bufferPool, S2C_CreatePlayer& packetStruct)

@@ -380,6 +380,21 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 }
                 break;
             }
+            case S2C_HEnemyReceivedDamage:
+            {
+                S2C_EnemyReceivedDamage* packet = reinterpretPacket<S2C_EnemyReceivedDamage>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_EnemyReceivedDamage");
+                    ClientPawn->ShowEnemyReceivedDamage();
+                    break;
+                }
+                else
+                {
+                    dataValid = false;
+                }
+                break;
+            }
             case S2C_HShoot:
             {
                 S2C_Shoot* packet = reinterpretPacket<S2C_Shoot>(span, buffPos);

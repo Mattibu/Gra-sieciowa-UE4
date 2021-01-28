@@ -455,6 +455,7 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                                         {
                                             if (otherPlayerData.player->GetHealth() <= 0.0f)
                                                 break;
+                                            sendPacketTo(packet->playerId, S2C_EnemyReceivedDamage{ S2C_HEnemyReceivedDamage });
 
                                             //TODO:change chardcoded damage value;
                                             uint16_t damage = 20;
