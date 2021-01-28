@@ -4,6 +4,7 @@
 #include "Client/Server/WinTCPClient.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Client/SpaceMMAInstance.h"
 
 using namespace spacemma;
 using namespace spacemma::packets;
@@ -719,7 +720,23 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             }
             case S2C_HInvalidMap:
             {
-                SPACEMMA_ERROR("S2C_InvalidMap");
+                S2C_InvalidMap packet;
+                if (reinterpretPacket(span, buffPos, packet))
+                {
+                    SPACEMMA_ERROR("S2C_InvalidMap: {}, '{}'", packet.mapNameLength, packet.mapName);
+                    USpaceMMAInstance* gameInstance = GetGameInstance<USpaceMMAInstance>();
+                    gameInstance->ForceStartFromMenu = true;
+                    gameInstance->ForceStartMapName = packet.mapName.c_str();
+                    gameInstance->Nickname = Nickname;
+                    gameInstance->ServerIpAddress = ServerIpAddress;
+                    gameInstance->ServerPort = ServerPort;
+                    gameInstance->Initialization = USpaceMMAInstance::LevelInitialization::None;
+                    SPACEMMA_WARN("Initialized map switching.");
+                    tcpClient->close();
+                } else
+                {
+                    dataValid = false;
+                }
                 break;
             }
             case S2C_HInvalidData:

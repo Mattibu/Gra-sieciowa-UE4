@@ -265,7 +265,7 @@ namespace spacemma
             uint8_t padding{};
             uint16_t roundTime{};
         };
-        
+
 
         /**
          * Sent before disconnecting client to inform that the reason is an invalid nickname.
@@ -281,6 +281,8 @@ namespace spacemma
         struct S2C_InvalidMap final
         {
             uint8_t header{ S2C_HInvalidMap };
+            uint8_t mapNameLength{};
+            std::string mapName{};
         };
 
         /**
@@ -317,6 +319,21 @@ namespace spacemma
             ByteBuffer* buffer = bufferPool->getBuffer(offsetof(S2C_CreatePlayer, nickname) + packetStruct.nicknameLength);
             memcpy(buffer->getPointer(), &packetStruct, offsetof(S2C_CreatePlayer, nickname));
             memcpy(buffer->getPointer() + offsetof(S2C_CreatePlayer, nickname), packetStruct.nickname.c_str(), packetStruct.nicknameLength);
+            return buffer;
+        }
+
+        inline ByteBuffer* createPacketBuffer(gsl::not_null<BufferPool*> bufferPool, S2C_InvalidMap& packetStruct)
+        {
+            if (packetStruct.mapName.length() > UINT8_MAX)
+            {
+                SPACEMMA_ERROR("Unable to create S2C_InvalidMap packet buffer: map name too long ({} < {})!",
+                               UINT8_MAX, packetStruct.mapName.length());
+                return nullptr;
+            }
+            packetStruct.mapNameLength = packetStruct.mapName.length();
+            ByteBuffer* buffer = bufferPool->getBuffer(offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength);
+            memcpy(buffer->getPointer(), &packetStruct, offsetof(S2C_InvalidMap, mapName));
+            memcpy(buffer->getPointer() + offsetof(S2C_InvalidMap, mapName), packetStruct.mapName.c_str(), packetStruct.mapNameLength);
             return buffer;
         }
 
@@ -365,6 +382,32 @@ namespace spacemma
                 packetStruct.nickname.append(
                     reinterpret_cast<char*>(packet->getPointer() + offsetof(S2C_CreatePlayer, nickname)),
                     packetStruct.nicknameLength);
+            }
+            return true;
+        }
+
+        inline bool reinterpretPacket(gsl::not_null<ByteBuffer*> packet, S2C_InvalidMap& packetStruct)
+        {
+            if (packet->getUsedSize() < offsetof(S2C_InvalidMap, mapName))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {})!",
+                               *packet->getPointer(), offsetof(S2C_InvalidMap, mapName), packet->getUsedSize());
+                return false;
+            }
+            memcpy(&packetStruct, packet->getPointer(), offsetof(S2C_InvalidMap, mapName));
+            if (packet->getUsedSize() != offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {})! Expected nickname of {} characters!",
+                               *packet->getPointer(), offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength,
+                               packet->getUsedSize(), packetStruct.mapNameLength);
+                return false;
+            }
+            packetStruct.mapName.clear();
+            if (packetStruct.mapNameLength > 0)
+            {
+                packetStruct.mapName.append(
+                    reinterpret_cast<char*>(packet->getPointer() + offsetof(S2C_InvalidMap, mapName)),
+                    packetStruct.mapNameLength);
             }
             return true;
         }
@@ -429,6 +472,33 @@ namespace spacemma
             return true;
         }
 
+        inline bool reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos, S2C_InvalidMap& packetStruct)
+        {
+            if ((buff.size() - pointerPos) < offsetof(S2C_InvalidMap, mapName))
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} > {}) | Size: {}, Pos: {}!",
+                               buff[pointerPos], offsetof(S2C_InvalidMap, mapName), buff.size() - pointerPos, buff.size(), pointerPos);
+                return false;
+            }
+            memcpy(&packetStruct, buff.data() + pointerPos, offsetof(S2C_InvalidMap, mapName));
+            if ((buff.size() - pointerPos) != offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength)
+            {
+                SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}! Expected map name of {} characters!",
+                               buff[pointerPos], offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength,
+                               buff.size() - pointerPos, buff.size(), pointerPos, packetStruct.mapNameLength);
+                return false;
+            }
+            packetStruct.mapName.clear();
+            if (packetStruct.mapNameLength > 0)
+            {
+                packetStruct.mapName.append(
+                    reinterpret_cast<char*>(buff.data() + pointerPos + offsetof(S2C_InvalidMap, mapName)),
+                    packetStruct.mapNameLength);
+            }
+            pointerPos += offsetof(S2C_InvalidMap, mapName) + packetStruct.mapNameLength;
+            return true;
+        }
+
         inline bool reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos, C2S_InitConnection& packetStruct)
         {
             if ((buff.size() - pointerPos) < offsetof(C2S_InitConnection, mapName))
@@ -467,6 +537,8 @@ namespace spacemma
         T* reinterpretPacket(gsl::not_null<ByteBuffer*> packet)
         {
             static_assert(!std::is_same<S2C_CreatePlayer, T>());
+            static_assert(!std::is_same<C2S_InitConnection, T>());
+            static_assert(!std::is_same<S2C_InvalidMap, T>());
             if (packet->getUsedSize() != sizeof(T))
             {
                 SPACEMMA_ERROR("Invalid packet {} size ({} != {})!",
@@ -480,6 +552,8 @@ namespace spacemma
         T* reinterpretPacket(gsl::span<uint8_t> buff, size_t& pointerPos)
         {
             static_assert(!std::is_same<S2C_CreatePlayer, T>());
+            static_assert(!std::is_same<C2S_InitConnection, T>());
+            static_assert(!std::is_same<S2C_InvalidMap, T>());
             if ((buff.size() - pointerPos) < sizeof(T))
             {
                 SPACEMMA_ERROR("Invalid packet {} size ({} != {}) | Size: {}, Pos: {}!",

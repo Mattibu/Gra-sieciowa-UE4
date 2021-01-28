@@ -97,7 +97,7 @@ bool AGameServer::stopServer()
         receivedPackets.clear();
         liveClients.clear();
         playersAwaitingSpawn.clear();
-        disconnectingPlayers.clear();
+        disconnectingPlayersWithTimeouts.clear();
         gameClientData.clear();
         SPACEMMA_DEBUG("Resetting tcpServer...");
         tcpServer.reset();
@@ -192,7 +192,7 @@ void AGameServer::threadSend(gsl::not_null<Thread*> thread, void* args)
                 if (srv->isClientLive(port))
                 {
                     std::lock_guard lock1(srv->disconnectMutex);
-                    srv->disconnectingPlayers.insert(port);
+                    srv->disconnectingPlayersWithTimeouts[port] = 0.0f;
                 }
                 break;
             }
@@ -221,7 +221,7 @@ void AGameServer::threadReceive(gsl::not_null<Thread*> thread, void* args)
             if (srv->isClientLive(port))
             {
                 std::lock_guard lock1(srv->disconnectMutex);
-                srv->disconnectingPlayers.insert(port);
+                srv->disconnectingPlayersWithTimeouts[port] = 0.0f;
             }
             break;
         }
@@ -371,18 +371,22 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                             tcpServer->sendTo(buff, sourceClient);
                             bufferPool->freeBuffer(buff);
                             std::lock_guard lock(disconnectMutex);
-                            disconnectingPlayers.insert(sourceClient);
+                            disconnectingPlayersWithTimeouts.emplace(sourceClient, 0.0f);
                             return;
                         }
                     } else
                     {
                         SPACEMMA_WARN("Player {} is playing on a different map ('{}' != '{}'). Closing connection.", sourceClient, mapName, packet.mapName);
-                        ByteBuffer* buff = bufferPool->getBuffer(1);
-                        *buff->getPointer() = S2C_HInvalidMap;
+                        S2C_InvalidMap invalidMapPacket{
+                            S2C_HInvalidMap,
+                            mapName.length(),
+                            mapName
+                        };
+                        ByteBuffer* buff = createPacketBuffer(bufferPool.get(), invalidMapPacket);
                         tcpServer->sendTo(buff, sourceClient);
                         bufferPool->freeBuffer(buff);
                         std::lock_guard lock(disconnectMutex);
-                        disconnectingPlayers.insert(sourceClient);
+                        disconnectingPlayersWithTimeouts.emplace(sourceClient, INVALID_MAP_TIMEOUT);
                         return;
                     }
                 } else
@@ -391,13 +395,19 @@ void AGameServer::processPacket(unsigned short sourceClient, gsl::not_null<ByteB
                 }
             } else
             {
-                SPACEMMA_WARN("Player {} did not authorise. Closing connection.", sourceClient);
-                ByteBuffer* buff = bufferPool->getBuffer(1);
-                *buff->getPointer() = S2C_HInvalidData;
-                tcpServer->sendTo(buff, sourceClient);
-                bufferPool->freeBuffer(buff);
                 std::lock_guard lock(disconnectMutex);
-                disconnectingPlayers.insert(sourceClient);
+                if (disconnectingPlayersWithTimeouts.find(sourceClient) != disconnectingPlayersWithTimeouts.end())
+                {
+                    SPACEMMA_WARN("Ignoring packet from player {} who is being disconnected.", sourceClient);
+                } else
+                {
+                    SPACEMMA_WARN("Player {} did not authorise. Closing connection.", sourceClient);
+                    ByteBuffer* buff = bufferPool->getBuffer(1);
+                    *buff->getPointer() = S2C_HInvalidData;
+                    tcpServer->sendTo(buff, sourceClient);
+                    bufferPool->freeBuffer(buff);
+                    disconnectingPlayersWithTimeouts.emplace(sourceClient, 0.0f);
+                }
                 return;
             }
         } else
@@ -681,15 +691,20 @@ void AGameServer::handlePlayerAwaitingSpawn()
     }
 }
 
-void AGameServer::handlePendingDisconnect()
+void AGameServer::handlePendingDisconnect(float timeDelta)
 {
     unsigned short clientPortToDisconnect = 0;
     {
         std::lock_guard lock(disconnectMutex);
-        if (!disconnectingPlayers.empty())
+        if (!disconnectingPlayersWithTimeouts.empty())
         {
-            clientPortToDisconnect = *disconnectingPlayers.begin();
-            disconnectingPlayers.erase(disconnectingPlayers.begin());
+            std::map<unsigned short, float>::iterator pair = disconnectingPlayersWithTimeouts.begin();
+            pair->second -= timeDelta;
+            if (pair->second <= 0.0f)
+            {
+                clientPortToDisconnect = pair->first;
+                disconnectingPlayersWithTimeouts.erase(pair);
+            }
         }
     }
     if (clientPortToDisconnect)
@@ -792,7 +807,7 @@ void AGameServer::Tick(float DeltaTime)
     {
         handlePlayerAwaitingSpawn();
         processAllPendingPackets();
-        handlePendingDisconnect();
+        handlePendingDisconnect(DeltaTime);
         handleRoundTimer(DeltaTime);
         currentMovementUpdateDelta += DeltaTime;
         if (currentMovementUpdateDelta >= movementUpdateDelta)
