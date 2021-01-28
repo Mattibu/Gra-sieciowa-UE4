@@ -47,6 +47,8 @@ public:
         void RespawnPlayer(FVector position, FRotator rotator);
     UFUNCTION(BlueprintImplementableEvent, Category = Player_Control)
         void StartRound(int roundTime);
+    UFUNCTION(BlueprintImplementableEvent, Category = Player_Statistics)
+        void AddKillNotification(const FString& killerName, const FString& victimName);
     UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)
         float GetHealth();
     UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = Player_Statistics)

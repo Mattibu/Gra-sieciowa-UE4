@@ -81,6 +81,8 @@ public:
     */
     UFUNCTION(BlueprintCallable, Category = Server_Management)
         bool stopServer();
+
+    const float INVALID_MAP_TIMEOUT = 3.0f;
 protected:
     /**
     * Virtual method which is called once on start.
@@ -146,7 +148,7 @@ private:
     /**
     * Handles disconnected clients.
     */
-    void handlePendingDisconnect();
+    void handlePendingDisconnect(float timeDelta);
     /**
     * Checks if there is any available packet and then if it is true, processes the packet.
     */
@@ -177,7 +179,7 @@ private:
     std::unique_ptr<spacemma::TCPMultiClientServer> tcpServer{};
     spacemma::Thread* acceptThread{};
     std::vector<std::pair<unsigned short, spacemma::ByteBuffer*>> receivedPackets{};
-    std::set<unsigned short> disconnectingPlayers{};
+    std::map<unsigned short, float> disconnectingPlayersWithTimeouts{};
     std::set<unsigned short> liveClients{};
     std::set<unsigned short> playersAwaitingSpawn{};
     std::set<unsigned short> unverifiedPlayers{};

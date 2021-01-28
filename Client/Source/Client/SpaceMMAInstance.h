@@ -15,8 +15,8 @@ public:
     enum class LevelInitialization
     {
         None,
-        Client,
-        Server
+        Client,    // client configuration
+        Server     // server configuration
     };
     LevelInitialization Initialization{ LevelInitialization::None };
     UPROPERTY(EditDefaultsOnly, Category = GameManagement)
@@ -35,6 +35,10 @@ public:
         int32 ServerPort = 4444;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Parameters)
         FString Nickname = "Player";
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Parameters)
+        bool ForceStartFromMenu = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Client_Parameters)
+        FString ForceStartMapName = "";
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)
         int32 MaxClients = 8;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Server_Parameters)

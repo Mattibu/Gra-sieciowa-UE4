@@ -4,6 +4,7 @@
 #include "Client/Server/WinTCPClient.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Client/SpaceMMAInstance.h"
 
 using namespace spacemma;
 using namespace spacemma::packets;
@@ -412,17 +413,16 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet)
                 {
                     SPACEMMA_DEBUG("S2C_StartRound: {}",
-                        packet->roundTime);      
+                                   packet->roundTime);
                     kills = 0;
                     deaths = 0;
-                    for (auto &otherPlayer : otherPlayers)
+                    for (auto& otherPlayer : otherPlayers)
                     {
                         otherPlayer.second.deaths = 0;
                         otherPlayer.second.kills = 0;
                     }
                     ClientPawn->StartRound(packet->roundTime);
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -662,33 +662,52 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                 if (packet)
                 {
                     SPACEMMA_DEBUG("Game Client received: S2C_UpdateScoreboard: {}, {}", packet->killerPlayerId, packet->killedPlayerId);
+                    FString killerNickname, victimNickname;
                     if (packet->killerPlayerId == playerId)
                     {
+                        killerNickname = Nickname;
                         kills += 1;
                         ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
                         const auto& pairIt = otherPlayers.find(packet->killedPlayerId);
                         if (pairIt != otherPlayers.end())
                         {
+                            victimNickname = pairIt->second.nickname.c_str();
                             auto& otherPlayer = pairIt->second;
                             otherPlayer.deaths += 1;
                             ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
                         }
-                        break;
-                    }
-                    else if (packet->killedPlayerId == playerId)
+                    } else if (packet->killedPlayerId == playerId)
                     {
+                        victimNickname = Nickname;
                         deaths += 1;
                         ClientPawn->UpdatePlayerOnScoreboard(Nickname, kills, deaths);
                         const auto& pairIt = otherPlayers.find(packet->killerPlayerId);
                         if (pairIt != otherPlayers.end())
                         {
+                            killerNickname = pairIt->second.nickname.c_str();
                             auto& otherPlayer = pairIt->second;
                             otherPlayer.kills += 1;
                             ClientPawn->UpdatePlayerOnScoreboard(FString(otherPlayer.nickname.c_str()), otherPlayer.kills, otherPlayer.deaths);
                         }
                     }
-                }
-                else
+                    if (killerNickname.IsEmpty())
+                    {
+                        const auto& pairIt = otherPlayers.find(packet->killerPlayerId);
+                        if (pairIt != otherPlayers.end())
+                        {
+                            killerNickname = pairIt->second.nickname.c_str();
+                        }
+                    }
+                    if (victimNickname.IsEmpty())
+                    {
+                        const auto& pairIt = otherPlayers.find(packet->killedPlayerId);
+                        if (pairIt != otherPlayers.end())
+                        {
+                            victimNickname = pairIt->second.nickname.c_str();
+                        }
+                    }
+                    ClientPawn->AddKillNotification(killerNickname, victimNickname);
+                } else
                 {
                     dataValid = false;
                 }
@@ -701,7 +720,23 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             }
             case S2C_HInvalidMap:
             {
-                SPACEMMA_ERROR("S2C_InvalidMap");
+                S2C_InvalidMap packet;
+                if (reinterpretPacket(span, buffPos, packet))
+                {
+                    SPACEMMA_ERROR("S2C_InvalidMap: {}, '{}'", packet.mapNameLength, packet.mapName);
+                    USpaceMMAInstance* gameInstance = GetGameInstance<USpaceMMAInstance>();
+                    gameInstance->ForceStartFromMenu = true;
+                    gameInstance->ForceStartMapName = packet.mapName.c_str();
+                    gameInstance->Nickname = Nickname;
+                    gameInstance->ServerIpAddress = ServerIpAddress;
+                    gameInstance->ServerPort = ServerPort;
+                    gameInstance->Initialization = USpaceMMAInstance::LevelInitialization::None;
+                    SPACEMMA_WARN("Initialized map switching.");
+                    tcpClient->close();
+                } else
+                {
+                    dataValid = false;
+                }
                 break;
             }
             case S2C_HInvalidData:
