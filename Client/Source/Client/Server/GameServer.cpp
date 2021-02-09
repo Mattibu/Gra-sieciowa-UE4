@@ -5,6 +5,7 @@
 #include "Client/Shared/Packets.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 using namespace spacemma;
 using namespace spacemma::packets;
@@ -667,6 +668,15 @@ void AGameServer::handlePlayerAwaitingSpawn()
         ByteBuffer* packetBuffer = createPacketBuffer(bufferPool.get(), createPlayerPacket);
         sendToAll(packetBuffer);
         bufferPool->freeBuffer(packetBuffer);
+        if (mapName == "AdrianMap")
+        {
+            AAdrianMapActor* adrianMap = reinterpret_cast<AAdrianMapActor*>(UGameplayStatics::GetActorOfClass(GetWorld(), AAdrianMapActor::StaticClass()));
+            if (adrianMap)
+            {
+                SPACEMMA_INFO("Sending door sync packet!");
+                sendPacketTo(clientPort, S2C_SyncDoors{ S2C_HSyncDoors, {}, {}, {}, adrianMap->GetTimestamp() });
+            }
+        }
         // tell the player about other players
         for (unsigned short port : liveClients)
         {

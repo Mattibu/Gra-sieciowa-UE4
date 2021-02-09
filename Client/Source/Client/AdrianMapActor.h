@@ -21,11 +21,15 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Doors)
         float SwitchInterval = 8.0f;
     virtual void Tick(float DeltaTime) override;
+    int64 GetTimestamp();
+    void SetTimestamp(int64 ts);
+    void SetTimebase(FDateTime tb);
 protected:
     virtual void BeginPlay() override;
 
 private:
+    void updateDoorState(bool force);
     void updateDoors(bool cycle, bool force = false);
     bool switchCycled{ false };
-    float switchTimer{ 0.0f };
+    FDateTime timebase{};
 };

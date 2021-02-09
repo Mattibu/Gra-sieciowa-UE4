@@ -1,4 +1,5 @@
 #include "AdrianMapActor.h"
+#include "Client/Server/SpaceLog.h"
 
 AAdrianMapActor::AAdrianMapActor()
 {
@@ -9,7 +10,18 @@ AAdrianMapActor::AAdrianMapActor()
 void AAdrianMapActor::BeginPlay()
 {
     Super::BeginPlay();
-    switchTimer = SwitchInterval;
+    timebase = FDateTime::UtcNow();
+}
+
+void AAdrianMapActor::updateDoorState(bool force)
+{
+    float time = static_cast<float>((FDateTime::UtcNow() - timebase).GetTotalSeconds());
+    bool cycled = static_cast<int>(time / SwitchInterval) % 2 == 0;
+    if (cycled != switchCycled)
+    {
+        switchCycled = cycled;
+        updateDoors(cycled, force);
+    }
 }
 
 void AAdrianMapActor::updateDoors(bool cycle, bool force)
@@ -31,11 +43,21 @@ void AAdrianMapActor::updateDoors(bool cycle, bool force)
 void AAdrianMapActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    switchTimer += DeltaTime;
-    if (switchTimer >= SwitchInterval)
-    {
-        switchTimer -= SwitchInterval;
-        switchCycled = !switchCycled;
-        updateDoors(switchCycled);
-    }
+    updateDoorState(false);
+}
+
+int64 AAdrianMapActor::GetTimestamp()
+{
+    return timebase.ToUnixTimestamp();
+}
+
+void AAdrianMapActor::SetTimestamp(int64 ts)
+{
+    SetTimebase(FDateTime::FromUnixTimestamp(ts));
+}
+
+void AAdrianMapActor::SetTimebase(FDateTime tb)
+{
+    timebase = tb;
+    updateDoorState(true);
 }

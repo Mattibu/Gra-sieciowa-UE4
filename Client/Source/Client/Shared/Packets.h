@@ -76,7 +76,8 @@ namespace spacemma
             S2C_HInvalidData,
             C2S_HInitConnection,
             S2C_HUpdateScoreboard,
-            S2C_HEnemyReceivedDamage
+            S2C_HEnemyReceivedDamage,
+            S2C_HSyncDoors
         };
 
         /**
@@ -311,6 +312,15 @@ namespace spacemma
         struct S2C_EnemyReceivedDamage final
         {
             uint8_t header{ S2C_HEnemyReceivedDamage };
+        };
+
+        struct S2C_SyncDoors final
+        {
+            uint8_t header{ S2C_HSyncDoors };
+            uint8_t padding1{};
+            uint16_t padding2{};
+            uint32_t padding3{};
+            int64 timestamp{};
         };
 
         inline ByteBuffer* createPacketBuffer(gsl::not_null<BufferPool*> bufferPool, S2C_CreatePlayer& packetStruct)

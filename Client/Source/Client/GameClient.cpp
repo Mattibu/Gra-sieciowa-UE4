@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Client/SpaceMMAInstance.h"
+#include "Kismet/GameplayStatics.h"
 
 using namespace spacemma;
 using namespace spacemma::packets;
@@ -388,8 +389,7 @@ void AGameClient::processPacket(ByteBuffer* buffer)
                     SPACEMMA_DEBUG("S2C_EnemyReceivedDamage");
                     ClientPawn->ShowEnemyReceivedDamage();
                     break;
-                }
-                else
+                } else
                 {
                     dataValid = false;
                 }
@@ -757,6 +757,23 @@ void AGameClient::processPacket(ByteBuffer* buffer)
             case S2C_HInvalidData:
             {
                 SPACEMMA_ERROR("S2C_InvalidData");
+                break;
+            }
+            case S2C_HSyncDoors:
+            {
+                S2C_SyncDoors* packet = reinterpretPacket<S2C_SyncDoors>(span, buffPos);
+                if (packet)
+                {
+                    SPACEMMA_DEBUG("S2C_SyncDoors: {}, {}", packet->header, packet->timestamp);
+                    AAdrianMapActor* adrianMap = reinterpret_cast<AAdrianMapActor*>(UGameplayStatics::GetActorOfClass(GetWorld(), AAdrianMapActor::StaticClass()));
+                    if (adrianMap)
+                    {
+                        adrianMap->SetTimestamp(packet->timestamp);
+                    }
+                } else
+                {
+                    dataValid = false;
+                }
                 break;
             }
             default:
